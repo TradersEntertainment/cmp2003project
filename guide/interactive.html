@@ -49,6 +49,13 @@ p{margin:0}
 .lede{color:var(--muted);max-width:68ch}
 header{display:flex;flex-wrap:wrap;gap:12px 24px;justify-content:space-between;align-items:flex-start}
 .head-text{display:flex;flex-direction:column;gap:8px;min-width:0;flex:1 1 520px}
+.links{display:flex;flex-wrap:wrap;gap:8px;margin-top:4px}
+.links a{display:inline-flex;align-items:center;gap:6px;font-size:13.5px;font-weight:600;color:var(--accent);text-decoration:none;border:1px solid var(--line);background:var(--surface);border-radius:999px;padding:5px 12px}
+.links a:hover{border-color:var(--accent)}
+.links a.main{background:var(--accent);color:var(--on-accent);border-color:var(--accent)}
+.links svg{width:15px;height:15px;flex:0 0 auto}
+.repo-foot{display:flex;flex-wrap:wrap;gap:6px 14px;align-items:center;border-top:1px solid var(--line);padding-top:16px;font-size:13.5px;color:var(--muted)}
+.repo-foot a{color:var(--accent);font-weight:600;word-break:break-all}
 .lang{display:flex;border:1px solid var(--line);border-radius:8px;overflow:hidden;flex:0 0 auto}
 .lang button{border:0;border-radius:0;padding:7px 12px;font-weight:600;background:var(--surface);color:var(--muted)}
 .lang button[aria-pressed="true"]{background:var(--accent);color:var(--on-accent)}
@@ -175,6 +182,12 @@ details p{color:var(--muted);padding-top:6px;max-width:72ch}
       <span class="eyebrow"><span lang="en">CMP2003 · FindFast · </span><span class="en">compact chained hash table</span><span class="tr">sıkı düğümlü zincirli hash tablosu</span></span>
       <h1><span class="en">What does our index do with a word?</span><span class="tr">İndeksimiz bir kelimeyle ne yapıyor?</span></h1>
       <p class="lede"><span class="en">Type a word and pick an operation. The table on the left changes step by step while the matching line of our real code lights up on the right.</span><span class="tr">Bir kelime yaz ve bir işlem seç. Soldaki tablo adım adım değişirken sağda gerçek kodumuzun o anda çalışan satırı yanar.</span></p>
+      <nav class="links" aria-label="Project links">
+        <a class="main" href="https://github.com/TradersEntertainment/cmp2003project" target="_blank" rel="noopener"><svg viewBox="0 0 16 16" aria-hidden="true" fill="currentColor"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg><span class="en">Code on GitHub</span><span class="tr">Kod GitHub'da</span></a>
+        <a href="https://github.com/TradersEntertainment/cmp2003project/blob/claude/funny-cori-gqz0ee/guide/EXPLANATION.md" target="_blank" rel="noopener"><span class="en">Full explanation (English)</span><span class="tr">Tam anlatım (İngilizce)</span></a>
+        <a href="https://github.com/TradersEntertainment/cmp2003project/blob/claude/funny-cori-gqz0ee/guide/ANLATIM_TR.md" target="_blank" rel="noopener"><span class="en">Full explanation (Turkish)</span><span class="tr">Tam anlatım (Türkçe)</span></a>
+        <a href="https://github.com/TradersEntertainment/cmp2003project/blob/claude/funny-cori-gqz0ee/report/report.pdf" target="_blank" rel="noopener"><span class="en">2-page report (PDF)</span><span class="tr">2 sayfalık rapor (PDF)</span></a>
+      </nav>
     </div>
     <div class="lang" role="group" aria-label="Language">
       <button type="button" id="lang-en" aria-pressed="true">English</button>
@@ -278,6 +291,11 @@ details p{color:var(--muted);padding-top:6px;max-width:72ch}
     </div>
     <p class="fine"><span class="en">The demo starts from 4 buckets so that growth appears quickly; the real code starts from 8. The code on the right is the real <code>findfast.cpp</code>, lightly shortened. Memory bars count nodes and the bucket array (the 40-byte index object is left out).</span><span class="tr">Gösterim, büyümeyi çabuk göresin diye 4 kovayla başlıyor; gerçek kod 8 kovayla başlar. Sağdaki kod gerçek <code>findfast.cpp</code>'nin biraz kısaltılmış hâli. Bellek çubukları düğümleri ve kova dizisini sayar (40 baytlık indeks nesnesi dahil değil).</span></p>
   </section>
+
+  <footer class="repo-foot">
+    <span><span class="en">Source code, tests, report and guides:</span><span class="tr">Kaynak kod, testler, rapor ve anlatımlar:</span></span>
+    <a href="https://github.com/TradersEntertainment/cmp2003project" target="_blank" rel="noopener">github.com/TradersEntertainment/cmp2003project</a>
+  </footer>
 </div>
 
 <script>
