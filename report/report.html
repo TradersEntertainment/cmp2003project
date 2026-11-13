@@ -1,0 +1,103 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>FindFast Report</title>
+<style>
+  @page { size: A4; margin: 12mm 14mm 11mm 14mm; }
+  :root { --ink: #16202e; --muted: #556274; --line: #c9d1dc; --accent: #23489c; --soft: #eef2f8; }
+  * { box-sizing: border-box; }
+  body { font-family: "Inter", "Segoe UI", "Helvetica Neue", Arial, sans-serif; color: var(--ink); font-size: 9.2pt; line-height: 1.34; margin: 0; }
+  h1 { font-size: 16pt; margin: 0 0 1mm; letter-spacing: -0.01em; }
+  h2 { font-size: 10.6pt; margin: 3.2mm 0 1.2mm; color: var(--accent); border-bottom: 0.6pt solid var(--line); padding-bottom: 0.8mm; }
+  p { margin: 0 0 1.8mm; }
+  .sub { color: var(--muted); font-size: 9pt; margin-bottom: 2mm; }
+  table { border-collapse: collapse; width: 100%; margin: 1mm 0 1.6mm; font-size: 8.4pt; break-inside: avoid; }
+  th, td { text-align: left; padding: 0.6mm 1.5mm; border-bottom: 0.5pt solid var(--line); vertical-align: top; }
+  th { background: var(--soft); font-weight: 600; }
+  td.n, th.n { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+  tr.us td { font-weight: 600; }
+  code { font-family: "JetBrains Mono", Consolas, "Courier New", monospace; font-size: 8.4pt; }
+  pre { font-family: "JetBrains Mono", Consolas, "Courier New", monospace; font-size: 7.9pt; background: var(--soft); padding: 1.6mm 2mm; margin: 1mm 0 2mm; line-height: 1.3; white-space: pre; }
+  ul { margin: 0 0 1.8mm; padding-left: 4.5mm; }
+  li { margin-bottom: 0.6mm; }
+  .two { display: grid; grid-template-columns: 1fr 1fr; gap: 5mm; }
+  .page-break { break-before: page; }
+  .note { color: var(--muted); font-size: 8.3pt; }
+</style>
+</head>
+<body>
+
+<h1>FindFast: Word Index with a Compact Chained Hash Table</h1>
+<div class="sub">CMP2003 Data Structures · 2026–2027 Fall · Team: <b>[team name]</b> · Members: <b>[name 1 (student no.)]</b>, <b>[name 2 (student no.)]</b>, <b>[name 3 (student no.)]</b></div>
+
+<h2>1. Structure and why we chose it</h2>
+<p>We implemented a <b>hash table with separate chaining</b>. A hash table answers every operation in expected time that does not depend on the number of stored words, n. A balanced search tree needs about log₂ n string comparisons (≈12 at n = 5,000), and a sorted array needs O(n) shifts per insert. Because the score is a balanced (harmonic) mean of time and peak memory, we designed every byte of the node. We also <b>measured</b> the alternatives rather than guessing: we wrote seven designs that pass all tests and raced them (31 runs each, median, official formula; each ratio is relative to the best of the set below).</p>
+<table>
+  <tr><th>Design (all pass T01–T20)</th><th class="n">bytes/word*</th><th class="n">T</th><th class="n">M</th><th class="n">E</th></tr>
+  <tr class="us"><td>Chained, 14-byte node header with 1-byte fingerprint (submitted)</td><td class="n">35.2</td><td class="n">0.93</td><td class="n">0.94</td><td class="n">9.3</td></tr>
+  <tr><td>Chained, 13-byte node header, no fingerprint</td><td class="n">34.2</td><td class="n">0.84</td><td class="n">0.97</td><td class="n">9.0</td></tr>
+  <tr><td>Open addressing, pointer slots + 1-byte control array, load ≤ 7/8</td><td class="n">36.1</td><td class="n">0.87</td><td class="n">0.88</td><td class="n">8.7</td></tr>
+  <tr><td>Chained, 20-byte header (stored hash, 32-bit length), byte-wise FNV hash</td><td class="n">41.2</td><td class="n">0.77</td><td class="n">0.76</td><td class="n">7.7</td></tr>
+  <tr><td>Typical: nodes holding a <code>Record</code> (+ separate <code>Key</code> buffer), <code>std::hash</code></td><td class="n">59.8</td><td class="n">0.70</td><td class="n">0.54</td><td class="n">6.1</td></tr>
+</table>
+<p class="note">* peak bytes / 5,000 on a 5,000-key workload shaped like <code>data/small.csv</code> (average word length 14.6).</p>
+<p>The design wins for three reasons.</p>
+<ul>
+  <li><b>One allocation per word holds everything.</b> The link, the list ID, a fingerprint, the length and the characters share one block of 14 + L bytes, with no separate <code>Key</code> buffer.</li>
+  <li><b>A one-byte fingerprint rejects wrong words.</b> A node whose fingerprint differs is skipped after reading one byte, without comparing characters.</li>
+  <li><b>Growth causes no memory spike.</b> <code>rehash</code> parks all nodes on one temporary list through their own links and releases the old bucket array <i>before</i> allocating the new one. As a result, the peak equals the final table size.</li>
+</ul>
+<p>We swept the maximum load factor (1, 1.5, 2, 2.5, 3, 4) and chose <b>2</b>, the best balance of T and M.</p>
+
+<h2>2. Layout</h2>
+<pre>buckets_ : array of 2^k Node* (bucket = hash &gt;&gt; (64-k), top bits)      grow ×2 when count = 2·buckets
+node     : [ next 8 B ][ ListId 4 B ][ fingerprint 1 B = low 8 hash bits ][ length varint, 1 B if L&lt;128 ][ L chars ]</pre>
+<p>The hash reads 8 characters per step: XOR the block in, multiply by an odd 64-bit constant, then shift-xor; a final avalanche round follows. Equality is checked 8 bytes at a time. All unaligned loads use <code>char_traits&lt;char&gt;::copy</code>, which compiles to one load and avoids undefined behaviour. The length is a varint (7 bits per byte), so any length is supported but short words pay one byte.</p>
+
+<h2>3. The functions</h2>
+<table>
+  <tr><th style="width:23%">Function</th><th>What it does</th></tr>
+  <tr><td><code>StudentIndex()</code></td><td>Sets an empty state: no bucket array, count 0. Nothing is allocated until the first <code>put</code>, so an empty object holds no dynamic memory.</td></tr>
+  <tr><td><code>put(word, list)</code></td><td>Hashes the word and walks its chain. If the word exists, it overwrites the ListId (no duplicate). Otherwise it doubles the table when count = 2·buckets, allocates one node with an <b>owned copy</b> of the characters, and links it at the chain head.</td></tr>
+  <tr><td><code>find(word, result)</code></td><td>Same walk. On a hit it writes <code>result</code> and returns true. On a miss it returns false with <code>result</code> untouched. It never modifies the structure.</td></tr>
+  <tr><td><code>erase(word)</code></td><td>Walks with <code>Node** link</code>, the address of the pointer that leads to the current node. <code>*link = node-&gt;next</code> unlinks the node from any position; the node is then deallocated and the count decremented. A missing word returns false.</td></tr>
+  <tr><td><code>size()</code></td><td>Returns the stored counter (const, O(1)).</td></tr>
+  <tr><td><code>clear()</code></td><td>Frees every chain (reading <code>next</code> before each release), frees the bucket array and resets all fields. It is safe to call twice because <code>deallocate(nullptr)</code> is a no-op, and the object is reusable afterwards.</td></tr>
+  <tr><td><code>~StudentIndex()</code></td><td>Calls <code>clear()</code>, so every byte is released even if the caller never cleared.</td></tr>
+  <tr><td>helpers</td><td><code>hash_of</code>, <code>holds</code> (fingerprint → length → <code>equal_text</code>), <code>make_node</code>/<code>free_chain</code>, <code>word_of</code> (varint decode), <code>rehash</code> (growth without overlap).</td></tr>
+</table>
+
+<h2>4. Complexity</h2>
+<p>n = number of stored words, L = length of the word passed to the operation, b = number of buckets (n/2 ≤ b ≤ n after the first growth). The expected chain length is ≤ 2 by the load-factor rule.</p>
+<table>
+  <tr><th>Operation</th><th>Expected time</th><th>Worst case</th><th>Extra space</th></tr>
+  <tr><td><code>put</code> (new word)</td><td>O(L) amortised (doubling is O(n + b) every ~n/2 inserts)</td><td>O(n·L)</td><td>14 + L bytes (+1 per extra 7 bits of length)</td></tr>
+  <tr><td><code>put</code> (existing word)</td><td>O(L)</td><td>O(n·L)</td><td>0</td></tr>
+  <tr><td><code>find</code></td><td>O(L)</td><td>O(n·L)</td><td>0</td></tr>
+  <tr><td><code>erase</code></td><td>O(L)</td><td>O(n·L)</td><td>frees 14 + L bytes</td></tr>
+  <tr><td><code>size</code> / constructor</td><td>O(1)</td><td>O(1)</td><td>0</td></tr>
+  <tr><td><code>clear</code> / destructor</td><td>O(n + b)</td><td>O(n + b)</td><td>frees everything</td></tr>
+  <tr><td><b>Total memory</b></td><td colspan="3">Σ(14 + Lᵢ) + 8·b + 40 bytes (the 40 bytes are the <code>StudentIndex</code> object itself). The peak equals this value because the old and new bucket arrays never coexist.</td></tr>
+</table>
+<p>The worst case requires almost all words to fall into one bucket. With our 64-bit hash this did not occur on any family we tested (sequential numbers, shared 19-character prefixes, all 3-letter words, 4,096-character keys). Bucket occupancy matched the uniform model.</p>
+
+<h2>5. Measurements</h2>
+<p>Machine: Intel Xeon 2.3 GHz, Linux, <code>g++ -std=c++17 -O2</code>. Each value is the median of 61 runs of the template's own <code>--bench</code>. The CSV workloads were generated with the same shape as <code>data/small.csv</code>: one third of the keys are <code>sharedprefixarchive…</code>, 2n lookups (25% misses) and n updates.</p>
+<table>
+  <tr><th>Workload</th><th class="n">build</th><th class="n">lookup</th><th class="n">update</th><th class="n">peak bytes</th><th class="n">bytes/word</th></tr>
+  <tr><td><code>--bench --n 200</code> (400 queries, 200 updates)</td><td class="n">11.9 µs</td><td class="n">7.3 µs</td><td class="n">5.3 µs</td><td class="n">5,389</td><td class="n">26.9</td></tr>
+  <tr><td><code>--bench --n 1500</code></td><td class="n">88.8 µs</td><td class="n">59.4 µs</td><td class="n">41.6 µs</td><td class="n">42,092</td><td class="n">28.1</td></tr>
+  <tr class="us"><td><code>--bench --n 5000 --queries 10000 --updates 5000</code> (grading scale)</td><td class="n">318.9 µs</td><td class="n">185.8 µs</td><td class="n">147.1 µs</td><td class="n">149,281</td><td class="n">29.9</td></tr>
+  <tr><td>CSV, 200 keys</td><td class="n">12.4 µs</td><td class="n">9.0 µs</td><td class="n">6.9 µs</td><td class="n">6,591</td><td class="n">33.0</td></tr>
+  <tr><td>CSV, 1,500 keys</td><td class="n">100.1 µs</td><td class="n">67.7 µs</td><td class="n">41.9 µs</td><td class="n">50,869</td><td class="n">33.9</td></tr>
+  <tr class="us"><td>CSV, 5,000 keys (grading scale)</td><td class="n">378.5 µs</td><td class="n">229.3 µs</td><td class="n">171.3 µs</td><td class="n">176,022</td><td class="n">35.2</td></tr>
+  <tr><td><code>--bench --workload data/small.csv</code> (1,000 keys)</td><td class="n">62.6 µs</td><td class="n">49.8 µs</td><td class="n">31.1 µs</td><td class="n">32,540</td><td class="n">32.5</td></tr>
+</table>
+<p>A byte-exact model of our layout (Σ(14 + L) + 8·4096 + 40) predicts the 5,000-key CSV peak as 176,022 bytes, exactly the measured value. That is about 35 bytes per word, 14.6 of which are the characters themselves. On the same workload the typical <code>Record</code>-node design measured 298,782 bytes, and open addressing over a <code>Record</code> array measured 674,190 bytes.</p>
+
+<h2>6. Testing</h2>
+<p><b>Public suite:</b> <code>--test all</code> passes 20/20 at scales 1–20,000 with 6 seeds. It builds without warnings in our region under <code>-Wall -Wextra -pedantic</code>, with both g++ and clang++, and is clean under AddressSanitizer + UndefinedBehaviorSanitizer. <b>Our tests</b> (<code>student_tests.cpp</code>, 11 groups, 11/11, sanitizer-clean) cover: the empty word; prefix chains across the varint boundaries 127/128 and 16,383/16,384 (up to 70,000 characters); 200,000-character words differing in the first, middle or last byte; bytes 0 and 0xFF inside words; ListId 0 and 2³²−1; caller buffers changed after <code>put</code>; <code>clear</code>, reuse and destruction with exact tracked-memory checks; read-only lookups; a 1.4-million-operation differential test against <code>std::map</code> (6 seeds, 4 key shapes); 200,000 keys; and the search engine on top of the index. A script also confirms that every byte outside the marked region is identical to the template.</p>
+
+</body>
+</html>

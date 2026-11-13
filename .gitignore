@@ -1,2 +1,8 @@
-prototype/lab
-prototype/lab_asan
+findfast
+findfast.exe
+student_tests
+student_tests.exe
+*.o
+research/bin/
+research/wl/
+research/variants/*.cpp
