@@ -22,7 +22,7 @@ template<bool LIGHT> void report(const char* name, vector<string>& keys) {
         size_t n = keys.size(); if (n > nb * 2) n = nb * 2;   // load 2
         for (size_t i = 0; i < n; ++i) { uint64_t h = hash_of<LIGHT>(keys[i]); cnt[h >> (64 - bits)]++; fp[h & 255]++; }
         double ssq = 0; unsigned mx = 0; for (auto c : cnt) { ssq += double(c) * (c + 1) / 2; if (c > mx) mx = c; }
-        double expected = double(n) / 2 + double(n) * n / (2.0 * nb);  // E[sum c(c+1)/2] for uniform
+        double expected = double(n) + double(n) * (n - 1) / (2.0 * nb);  // E[sum c(c+1)/2] for uniform hashing
         double chi = 0, e = double(n) / 256; for (auto c : fp) chi += (c - e) * (c - e) / e;
         printf("  %-6s %-28s bits %2u n %6zu  probe-cost ratio %.3f  max chain %u  fp chi2/255 %.2f\n", LIGHT ? "light" : "full", name, bits, n, ssq / expected, mx, chi / 255);
     }

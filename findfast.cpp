@@ -154,7 +154,8 @@ namespace findfast {
 // So a normal word costs 14 + L bytes, plus its share of the bucket array.
 class StudentIndex final : public Index {
     // Only the link is a real C++ member; the other fields follow it inside the
-    // same allocation and are reached through the byte offsets below.
+    // same allocation and are reached through the byte offsets below. (As real
+    // members, ListId and the fingerprint would pad Node to 16 bytes: +3 per word.)
     struct Node {
         Node* next;
     };
@@ -165,10 +166,12 @@ class StudentIndex final : public Index {
     static constexpr unsigned kInitialBits = 3;   // first bucket array: 2^3 = 8 buckets
     static constexpr size_t kMaxLoad = 2;         // grow before a bucket average exceeds 2 words
 
-    Node** buckets_ = nullptr;   // array of chain heads; nullptr while nothing is stored
+    Node** buckets_ = nullptr;   // array of chain heads; nullptr before the first put and after clear()
     size_t bucket_count_ = 0;    // 0 or a power of two
     size_t count_ = 0;           // number of distinct words
-    unsigned shift_ = 64;        // bucket index = hash >> shift_ (the top bits of the hash)
+    unsigned shift_ = 64;        // bucket index = hash >> shift_, i.e. the top (64 - shift_) bits.
+                                 // 64 means "no table": it is never used while buckets_ is null.
+                                 // (Shifting by 64 would be undefined.)
 
     // ---- Hashing ---------------------------------------------------------------
 
@@ -179,23 +182,31 @@ class StudentIndex final : public Index {
         char_traits<char>::copy(reinterpret_cast<char*>(&value), p, 8);
         return value;
     }
-    static uint64_t load4(const char* p) {
+    static uint64_t load4(const char* p) {   // 64-bit result, so `load4(...) << 32` is valid
         uint32_t value;
         char_traits<char>::copy(reinterpret_cast<char*>(&value), p, 4);
         return value;
     }
 
+    // Mixing constants: kSeed = 2^64 / golden ratio (Fibonacci hashing); kMulA and
+    // kMulB are the two multipliers of the MurmurHash3 64-bit finaliser. They are
+    // odd, so each multiplication is invertible and no step throws information away.
+    static constexpr uint64_t kSeed = 0x9E3779B97F4A7C15ull;
+    static constexpr uint64_t kMulA = 0xFF51AFD7ED558CCDull;
+    static constexpr uint64_t kMulB = 0xC4CEB9FE1A85EC53ull;
+
     // 64-bit hash that consumes 8 characters per step. Each step mixes the block
-    // in with a multiplication by a large odd constant and a shift-xor; the final
-    // rounds make every output bit depend on every input character.
+    // in with a multiplication and a shift-xor (the multiplication spreads bits
+    // upwards, the shift brings them back down); the final rounds make every
+    // output bit depend on every input character.
     static uint64_t hash_of(string_view word) {
         const char* p = word.data();
         size_t n = word.size();
-        uint64_t h = 0x9E3779B97F4A7C15ull ^ n;   // the length is part of the hash
+        uint64_t h = kSeed ^ n;   // the length is part of the hash
         uint64_t tail;
         if (n >= 8) {
             while (n > 8) {
-                h = (h ^ load8(p)) * 0xFF51AFD7ED558CCDull;
+                h = (h ^ load8(p)) * kMulA;
                 h ^= h >> 32;
                 p += 8;
                 n -= 8;
@@ -207,9 +218,9 @@ class StudentIndex final : public Index {
             tail = 0;
             for (size_t i = 0; i < n; ++i) tail = (tail << 8) | static_cast<unsigned char>(p[i]);
         }
-        h = (h ^ tail) * 0xC4CEB9FE1A85EC53ull;
+        h = (h ^ tail) * kMulB;
         h ^= h >> 29;
-        h *= 0xFF51AFD7ED558CCDull;
+        h *= kMulA;
         h ^= h >> 32;
         return h;
     }
@@ -292,7 +303,7 @@ class StudentIndex final : public Index {
     static Node* make_node(string_view word, ListId list, unsigned char print, Node* next) {
         const size_t size = kLengthOffset + varint_size(word.size()) + word.size();
         char* raw = static_cast<char*>(memory::allocate(size));
-        Node* node = ::new (raw) Node{next};   // construct the link in the tracked block
+        Node* node = ::new (raw) Node{next};   // placement new (as memory::make does): builds the link, allocates nothing
         set_list(node, list);
         raw[kPrintOffset] = static_cast<char>(print);
         char* text = write_varint(raw + kLengthOffset, word.size());
@@ -312,7 +323,7 @@ class StudentIndex final : public Index {
 
     // Moves every node into a new array of 2^bits buckets. The old array is
     // released BEFORE the new one is requested, so the two never exist at the
-    // same time and the peak memory stays at the size of the final table.
+    // same time and growing never needs more memory than the new table itself.
     void rehash(unsigned bits) {
         Node* all = nullptr;   // 1. thread every node onto one temporary list
         for (size_t i = 0; i < bucket_count_; ++i) {
@@ -325,10 +336,13 @@ class StudentIndex final : public Index {
             }
         }
         memory::deallocate(buckets_);   // 2. release the old array first
+        buckets_ = nullptr;             //    (never leave a pointer to freed memory)
+        bucket_count_ = 0;
 
-        bucket_count_ = size_t(1) << bits;   // 3. then request the new one
+        const size_t new_count = size_t(1) << bits;   // 3. then request the new one
+        buckets_ = static_cast<Node**>(memory::allocate(new_count * sizeof(Node*)));
+        bucket_count_ = new_count;
         shift_ = 64 - bits;
-        buckets_ = static_cast<Node**>(memory::allocate(bucket_count_ * sizeof(Node*)));
         for (size_t i = 0; i < bucket_count_; ++i) buckets_[i] = nullptr;
 
         while (all) {   // 4. put each node in its new bucket
@@ -358,7 +372,7 @@ public:
         }
         // A new word. Grow first, so the bucket below belongs to the final table.
         if (!buckets_) rehash(kInitialBits);
-        else if (count_ >= kMaxLoad * bucket_count_) rehash(64 - shift_ + 1);
+        else if (count_ >= kMaxLoad * bucket_count_) rehash(64 - shift_ + 1);   // one more bit = 2x buckets
         Node*& head = buckets_[h >> shift_];
         head = make_node(word, list, print, head);   // insert at the front of the chain
         ++count_;
@@ -381,8 +395,9 @@ public:
         if (!buckets_) return false;
         const uint64_t h = hash_of(word);
         const unsigned char print = fingerprint(h);
-        // `link` is the address of the pointer that leads to the current node,
-        // so removing the node is a single store, wherever it is in the chain.
+        // `link` is the address of the pointer that leads to the current node
+        // (first the bucket slot, then the previous node's next), so removing the
+        // node is a single store wherever it is: no special case for the head.
         for (Node** link = &buckets_[h >> shift_]; *link; link = &(*link)->next) {
             Node* node = *link;
             if (holds(node, print, word)) {

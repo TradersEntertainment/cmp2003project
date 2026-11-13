@@ -23,15 +23,23 @@ Every file in [`variants/`](variants) is a complete student region. Each one pas
 
 ## Results
 
-[`results/benchmark.txt`](results/benchmark.txt) holds the raw output of the final comparison: every design, 16 workloads, 31 runs each, medians. E is computed with the official formula against the best of the set. Short version:
+[`results/benchmark.txt`](results/benchmark.txt) holds the raw output of the final comparison: 11 designs, 16 workloads, 31 runs each, medians. E is computed with the official formula against the best of the set. Short version:
 
 | Design | T | M | E |
 |---|---|---|---|
-| **vC2_eq (submitted)** | **0.93** | **0.94** | **9.3** |
-| vB_chain_compact | 0.84 | 0.97 | 9.0 |
-| vE_oa_fp | 0.87 | 0.88 | 8.7 |
-| vG_chain_fastrange | 0.77 | 0.99 | 8.6 |
-| c1_typical_chain | 0.70 | 0.54 | 6.1 |
+| **submitted (= vC2_eq + comments)** | **0.89** | **0.93** | **9.1** |
+| vC_chain_fp | 0.88 | 0.93 | 9.0 |
+| vB_chain_compact | 0.81 | 0.96 | 8.7 |
+| vF_chain_compact_hash | 0.88 | 0.85 | 8.6 |
+| vE_oa_fp | 0.84 | 0.88 | 8.4 |
+| vG_chain_fastrange | 0.74 | 0.98 | 8.4 |
+| vA_chain_fasthash | 0.89 | 0.78 | 8.3 |
+| vD_oa_ptr | 0.78 | 0.81 | 7.8 |
+| v0_baseline | 0.76 | 0.78 | 7.7 |
+| c1_typical_chain | 0.68 | 0.54 | 6.0 |
+| c2_typical_oa | 0.72 | 0.26 | 3.8 |
+
+We also tried scrambling each 8-byte block before it enters the hash. This hardens the hash against keys crafted so that bit flips cancel. It was about 4% slower (T 0.96 against the submitted code), which is outside the brief's 3% tie band. Ordinary key families do not trigger the weakness, so we kept the faster hash.
 
 Load-factor sweep of vC (max words per bucket before doubling): 1.0 → E 8.66, 1.5 → 8.68, **2.0 → 8.78**, 2.5 → 8.71, 3.0 → 8.62, 4.0 → 8.54. We kept 2.
 

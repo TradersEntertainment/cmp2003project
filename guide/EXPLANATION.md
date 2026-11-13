@@ -2,7 +2,7 @@
 
 A complete walkthrough of `findfast.cpp` for every team member. After reading it you should be able to explain any line of our code in the final question-and-answer session.
 
-> Türkçe sürüm: [ANLATIM_TR.md](ANLATIM_TR.md)
+> Türkçe sürüm: [ANLATIM_TR.md](ANLATIM_TR.md) · Interactive animation (English/Türkçe): [interactive.html](interactive.html), download it and open it in a browser
 
 **Contents**
 
@@ -31,20 +31,22 @@ We did not choose on intuition alone. We wrote **seven different hash-table desi
 
 | Design | Time ratio T | Memory ratio M | Score E (out of 10) |
 |---|---|---|---|
-| **Chained, compact node + 1-byte fingerprint (our choice)** | **0.93** | **0.94** | **9.3** |
-| Chained, compact node, no fingerprint | 0.84 | 0.97 | 9.0 |
-| Open addressing with a 1-byte control array | 0.87 | 0.88 | 8.7 |
-| Chained, non-power-of-two growth | 0.77 | 0.99 | 8.6 |
-| Chained, 20-byte node header (our first prototype) | 0.77 | 0.76 | 7.7 |
-| Open addressing with plain pointers | 0.74 | 0.79 | 7.4 |
-| *Typical: chained nodes holding a `Record`, `std::hash`* | 0.70 | 0.54 | 6.1 |
-| *Typical: open addressing over a `Record` array* | 0.82 | 0.25 | 3.8 |
+| **Chained, compact node + 1-byte fingerprint (our choice)** | **0.89** | **0.93** | **9.1** |
+| Chained, compact node, no fingerprint | 0.81 | 0.96 | 8.7 |
+| Open addressing with a 1-byte control array | 0.84 | 0.88 | 8.4 |
+| Chained, non-power-of-two growth | 0.74 | 0.98 | 8.4 |
+| Open addressing with plain pointers | 0.78 | 0.81 | 7.8 |
+| Chained, 20-byte node header (our first prototype) | 0.76 | 0.78 | 7.7 |
+| *Typical: chained nodes holding a `Record`, `std::hash`* | 0.68 | 0.54 | 6.0 |
+| *Typical: open addressing over a `Record` array* | 0.72 | 0.26 | 3.8 |
+
+(Means over 16 workloads from 100 to 8,000 keys; the raw numbers are in [`research/results/benchmark.txt`](../research/results/benchmark.txt).)
 
 Three ideas make our design win:
 
 1. **One allocation per word, with the characters inside it.** The supplied `Record` would cost 24 bytes plus a second allocation for the characters. We store the link, the list ID, a fingerprint, the length and the characters in a single block of `14 + L` bytes.
 2. **A one-byte fingerprint** of the hash in every node. While walking a chain, a node holding a different word is rejected after reading a single byte, without comparing characters.
-3. **Growing without a memory spike.** When the table grows, we release the old bucket array *before* asking for the new one (section 4.8). The score uses the *peak* memory, so this matters.
+3. **Growing without a memory spike.** When the table grows, we release the old bucket array *before* asking for the new one (section 4.9). The old and the new array never exist at the same time.
 
 We also swept the maximum load factor (words per bucket) from 1 to 4. The best balance between speed and memory was at **2**, which is the value we use.
 
@@ -128,16 +130,16 @@ This copies 8 bytes of the word into a 64-bit integer. The compiler turns it int
 ### 4.4 `hash_of`: turning a word into a 64-bit number
 
 ```cpp
-uint64_t h = 0x9E3779B97F4A7C15ull ^ n;          // start: a constant mixed with the length
+uint64_t h = kSeed ^ n;                         // start: a constant mixed with the length
 while (n > 8) {                                  // 8 characters per step
-    h = (h ^ load8(p)) * 0xFF51AFD7ED558CCDull;  // put the block in, multiply to spread it
+    h = (h ^ load8(p)) * kMulA;                   // put the block in, multiply to spread it
     h ^= h >> 32;                                // fold the high half back into the low half
     p += 8; n -= 8;
 }
 tail = ... the last 1–8 characters ...
-h = (h ^ tail) * 0xC4CEB9FE1A85EC53ull;          // final mixing ("avalanche")
+h = (h ^ tail) * kMulB;                         // final mixing ("avalanche")
 h ^= h >> 29;
-h *= 0xFF51AFD7ED558CCDull;
+h *= kMulA;
 h ^= h >> 32;
 ```
 
@@ -211,11 +213,16 @@ char_traits<char>::copy(text, word.data(), word.size());                       /
 Node* all = nullptr;                    // 1. thread EVERY node onto one temporary list
 for each bucket: move its nodes to the front of `all`
 memory::deallocate(buckets_);           // 2. release the old array FIRST
+buckets_ = nullptr; bucket_count_ = 0;  //    (never point at freed memory)
 buckets_ = allocate(new size);          // 3. only then ask for the new array
 for each node in `all`: push it to the front of buckets_[hash >> shift_]   // 4. redistribute
 ```
 
-The usual way is: allocate the new array, move the nodes, free the old array. For a moment both arrays exist, and the grader measures the **peak**. Because our nodes carry their own `next` links, we can park them all on one temporary list, release the old array, and only then allocate the new one. **Our peak memory therefore equals the memory of the final table.** We checked this with a byte-exact model: at n = 5,000 the predicted peak (176,022 bytes) matches the measured value exactly.
+The usual way is: allocate the new array, move the nodes, free the old array. For a moment both arrays exist, and the grader measures the **peak**. Because our nodes carry their own `next` links, we can park them all on one temporary list, release the old array, and only then allocate the new one. **So growing never needs more memory than the new table itself.**
+
+To be precise about what this buys: on the 200, 1,500 and 5,000-word workloads the final table is the peak anyway, because the last doubling happens well before the end. For example, at 5,000 CSV words the last doubling happens at 4,096 words; even the usual order would need only about 166 KB at that moment, below the final 176 KB. The ordering pays off when the number of words stops just after a doubling. Our byte-exact memory model predicts the 5,000-word peak as 176,022 bytes, exactly the measured value.
+
+If `memory::allocate` ever failed here (out of memory), `buckets_` is already `nullptr` and `bucket_count_` is 0, so the object never points at freed memory. The brief says running out of memory need not be handled; we only make sure it cannot cause a double free.
 
 We do not store the full hash in the node, so `rehash` recomputes it from the stored characters. We tested a version that stores 4 more bytes per word to skip this. It was not faster in practice, so the bytes are not worth it.
 
@@ -283,7 +290,7 @@ n = number of stored words, L = length of the word in the operation, b = number 
 | constructor | O(1) | O(1) | no allocation |
 | **Memory** | Σ(14 + Lᵢ) + 8·b + 40 bytes | | one block per word + bucket array + the object |
 
-The worst case only happens if almost every word lands in the same bucket, which a good 64-bit hash makes practically impossible for real words.
+The worst case needs almost every word in the same bucket. On ordinary word sets (sequential numbers, shared prefixes, every 3-letter word, 4,096-character keys, up to a million keys) the chain lengths matched the ideal random model. Keys deliberately crafted against our hash function could still collide. Like every non-cryptographic hash table, we give expected bounds, not guaranteed ones.
 
 ## 6. Memory, byte by byte
 
@@ -300,14 +307,15 @@ That is about **35 bytes per word, of which 14.6 are the word itself**. For comp
 
 ## 7. Measurements
 
-Median of 61 runs with `./findfast --bench`, Intel Xeon 2.3 GHz, `g++ -std=c++17 -O2`:
+Median of 31 runs with `./findfast --bench`, Intel Xeon 2.3 GHz, `g++ -std=c++17 -O2`:
 
 | Workload | Build | Lookup | Update | Peak bytes |
 |---|---|---|---|---|
-| synthetic `--n 200` | 11.9 µs | 7.3 µs | 5.3 µs | 5,389 |
-| synthetic `--n 1500` | 88.8 µs | 59.4 µs | 41.6 µs | 42,092 |
-| synthetic `--n 5000 --queries 10000 --updates 5000` | 318.9 µs | 185.8 µs | 147.1 µs | 149,281 |
-| CSV like `data/small.csv`, 5,000 keys | 378.5 µs | 229.3 µs | 171.3 µs | 176,022 |
+| synthetic `--n 200` | 12.3 µs | 7.3 µs | 5.3 µs | 5,389 |
+| synthetic `--n 1500` | 89.5 µs | 58.4 µs | 41.3 µs | 42,092 |
+| synthetic `--n 5000 --queries 10000 --updates 5000` | 326.4 µs | 180.4 µs | 144.1 µs | 149,281 |
+| `--workload data/small.csv` (1,000 keys) | 62.6 µs | 49.8 µs | 31.1 µs | 32,540 |
+| CSV like `data/small.csv`, 5,000 keys | 382.9 µs | 227.6 µs | 161.6 µs | 176,022 |
 
 The full tables and the scripts that produced them are in [`research/`](../research).
 
@@ -342,6 +350,8 @@ g++ -std=c++17 -O2 -Wall -Wextra -pedantic student_tests.cpp -o student_tests
 
 We also ran every test under AddressSanitizer and UndefinedBehaviorSanitizer (`-fsanitize=address,undefined`) and with clang++. Both are clean.
 
+> **macOS / clang users:** clang prints 7 warnings about `move(...)` in the **supplied** engine code. The untouched template prints the same 7, and g++ prints none. Do **not** fix them: only the region between the markers may be edited. Our region has no warnings with either compiler.
+
 ## 10. Questions the examiner may ask
 
 **Why a hash table and not a tree?** A tree needs about log₂ n string comparisons per operation; a hash table needs one hash and on average fewer than two node visits. We measured an AVL tree in our prototype: 3–5 times slower at n = 5,000.
@@ -366,7 +376,15 @@ We also ran every test under AddressSanitizer and UndefinedBehaviorSanitizer (`-
 
 **What is a varint and why use it?** A variable-length integer: 7 bits per byte, and the top bit says "more bytes follow". Normal words need 1 byte for their length instead of 8, and any length still works.
 
-**Why does `rehash` free the old array before allocating the new one?** The score uses the peak memory. Normally both arrays exist for a moment. We first move every node onto one temporary list, so the old array is no longer needed. Our peak is the final table's size.
+**Why does `rehash` free the old array before allocating the new one?** The score uses the peak memory, and normally both arrays exist for a moment. We first move every node onto one temporary list, so the old array is no longer needed. Growing therefore never needs two arrays at once. On our grading-size workloads the final table was the peak anyway; the ordering matters when the word count stops just after a doubling.
+
+**Why don't you use `Key` or `Record`?** Task 1 allows "`Key`, `Record`, `memory::make/destroy` **or** `memory::allocate/deallocate`". We use `memory::allocate` and make the owned copy exactly as the supplied `Key` does, with `char_traits<char>::copy`. A `Record`-based node would cost 32 + L bytes in two allocations; ours costs 14 + L in one.
+
+**Isn't the fingerprint a cache or a second index?** No. It is 8 bits of the word's *own* hash, stored inside that word's node. It remembers nothing about queries. It never decides a match on its own; it only rejects. We measured it rejecting a wrong word in a chain about 255 times out of 256.
+
+**`shift_` starts at 64. Isn't `h >> 64` undefined?** Yes, which is why it is never used while there is no table. `find` and `erase` return early when `buckets_` is null, and `put` calls `rehash` first, which sets `shift_` to 61. The value 64 just means "0 bits in use".
+
+**Where do the hash constants come from?** `kSeed` is 2⁶⁴ divided by the golden ratio (used in Fibonacci hashing). `kMulA` and `kMulB` are the two multipliers of the MurmurHash3 64-bit finaliser. They are odd, so multiplying by them is invertible and loses no information.
 
 **What does `Node** link` do in `erase`?** It points at the pointer that leads to the current node: the bucket slot first, then a `next` field. Writing `*link = node->next` unlinks the node anywhere in the chain without a special case.
 

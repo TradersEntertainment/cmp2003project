@@ -35,18 +35,18 @@
 <p>We implemented a <b>hash table with separate chaining</b>. A hash table answers every operation in expected time that does not depend on the number of stored words, n. A balanced search tree needs about log₂ n string comparisons (≈12 at n = 5,000), and a sorted array needs O(n) shifts per insert. Because the score is a balanced (harmonic) mean of time and peak memory, we designed every byte of the node. We also <b>measured</b> the alternatives rather than guessing: we wrote seven designs that pass all tests and raced them (31 runs each, median, official formula; each ratio is relative to the best of the set below).</p>
 <table>
   <tr><th>Design (all pass T01–T20)</th><th class="n">bytes/word*</th><th class="n">T</th><th class="n">M</th><th class="n">E</th></tr>
-  <tr class="us"><td>Chained, 14-byte node header with 1-byte fingerprint (submitted)</td><td class="n">35.2</td><td class="n">0.93</td><td class="n">0.94</td><td class="n">9.3</td></tr>
-  <tr><td>Chained, 13-byte node header, no fingerprint</td><td class="n">34.2</td><td class="n">0.84</td><td class="n">0.97</td><td class="n">9.0</td></tr>
-  <tr><td>Open addressing, pointer slots + 1-byte control array, load ≤ 7/8</td><td class="n">36.1</td><td class="n">0.87</td><td class="n">0.88</td><td class="n">8.7</td></tr>
-  <tr><td>Chained, 20-byte header (stored hash, 32-bit length), byte-wise FNV hash</td><td class="n">41.2</td><td class="n">0.77</td><td class="n">0.76</td><td class="n">7.7</td></tr>
-  <tr><td>Typical: nodes holding a <code>Record</code> (+ separate <code>Key</code> buffer), <code>std::hash</code></td><td class="n">59.8</td><td class="n">0.70</td><td class="n">0.54</td><td class="n">6.1</td></tr>
+  <tr class="us"><td>Chained, 14-byte node header with 1-byte fingerprint (submitted)</td><td class="n">35.2</td><td class="n">0.89</td><td class="n">0.93</td><td class="n">9.1</td></tr>
+  <tr><td>Chained, 13-byte node header, no fingerprint</td><td class="n">34.2</td><td class="n">0.81</td><td class="n">0.96</td><td class="n">8.7</td></tr>
+  <tr><td>Open addressing, pointer slots + 1-byte control array, load ≤ 7/8</td><td class="n">36.1</td><td class="n">0.84</td><td class="n">0.88</td><td class="n">8.4</td></tr>
+  <tr><td>Chained, 20-byte header (stored hash, 32-bit length), byte-wise FNV hash</td><td class="n">41.2</td><td class="n">0.76</td><td class="n">0.78</td><td class="n">7.7</td></tr>
+  <tr><td>Typical: nodes holding a <code>Record</code> (+ separate <code>Key</code> buffer), <code>std::hash</code></td><td class="n">59.8</td><td class="n">0.68</td><td class="n">0.54</td><td class="n">6.0</td></tr>
 </table>
-<p class="note">* peak bytes / 5,000 on a 5,000-key workload shaped like <code>data/small.csv</code> (average word length 14.6).</p>
+<p class="note">* peak bytes / 5,000 on a 5,000-key workload shaped like <code>data/small.csv</code> (average word length 14.6). T, M, E are means over 16 workloads (100–8,000 keys). Task 1 allows <code>memory::allocate</code> instead of <code>Key</code>/<code>Record</code>; we make the owned copy with the same <code>char_traits&lt;char&gt;::copy</code> that <code>Key</code> uses.</p>
 <p>The design wins for three reasons.</p>
 <ul>
   <li><b>One allocation per word holds everything.</b> The link, the list ID, a fingerprint, the length and the characters share one block of 14 + L bytes, with no separate <code>Key</code> buffer.</li>
   <li><b>A one-byte fingerprint rejects wrong words.</b> A node whose fingerprint differs is skipped after reading one byte, without comparing characters.</li>
-  <li><b>Growth causes no memory spike.</b> <code>rehash</code> parks all nodes on one temporary list through their own links and releases the old bucket array <i>before</i> allocating the new one. As a result, the peak equals the final table size.</li>
+  <li><b>Growth causes no memory spike.</b> <code>rehash</code> parks all nodes on one temporary list through their own links and releases the old bucket array <i>before</i> allocating the new one. The two arrays never coexist, so growing never needs more memory than the new table itself.</li>
 </ul>
 <p>We swept the maximum load factor (1, 1.5, 2, 2.5, 3, 4) and chose <b>2</b>, the best balance of T and M.</p>
 
@@ -78,20 +78,20 @@ node     : [ next 8 B ][ ListId 4 B ][ fingerprint 1 B = low 8 hash bits ][ leng
   <tr><td><code>erase</code></td><td>O(L)</td><td>O(n·L)</td><td>frees 14 + L bytes</td></tr>
   <tr><td><code>size</code> / constructor</td><td>O(1)</td><td>O(1)</td><td>0</td></tr>
   <tr><td><code>clear</code> / destructor</td><td>O(n + b)</td><td>O(n + b)</td><td>frees everything</td></tr>
-  <tr><td><b>Total memory</b></td><td colspan="3">Σ(14 + Lᵢ) + 8·b + 40 bytes (the 40 bytes are the <code>StudentIndex</code> object itself). The peak equals this value because the old and new bucket arrays never coexist.</td></tr>
+  <tr><td><b>Total memory</b></td><td colspan="3">Σ(14 + Lᵢ) + 8·b + 40 bytes (the 40 bytes are the <code>StudentIndex</code> object itself). Growth never adds a second bucket array on top of this, because the old and new arrays never coexist.</td></tr>
 </table>
-<p>The worst case requires almost all words to fall into one bucket. With our 64-bit hash this did not occur on any family we tested (sequential numbers, shared 19-character prefixes, all 3-letter words, 4,096-character keys). Bucket occupancy matched the uniform model.</p>
+<p>The worst case requires almost all words to fall into one bucket. With our 64-bit hash this did not occur on any family we tested (sequential numbers, shared 19-character prefixes, all 3-letter words, 4,096-character keys). Bucket occupancy matched the uniform model. Keys crafted against the hash could still collide, so the bounds are expected, not guaranteed.</p>
 
 <h2>5. Measurements</h2>
-<p>Machine: Intel Xeon 2.3 GHz, Linux, <code>g++ -std=c++17 -O2</code>. Each value is the median of 61 runs of the template's own <code>--bench</code>. The CSV workloads were generated with the same shape as <code>data/small.csv</code>: one third of the keys are <code>sharedprefixarchive…</code>, 2n lookups (25% misses) and n updates.</p>
+<p>Machine: Intel Xeon 2.3 GHz, Linux, <code>g++ -std=c++17 -O2</code>. Each value is the median of 31 runs of the template's own <code>--bench</code>. The CSV workloads were generated with the same shape as <code>data/small.csv</code>: one third of the keys are <code>sharedprefixarchive…</code>, 2n lookups (25% misses) and n updates.</p>
 <table>
   <tr><th>Workload</th><th class="n">build</th><th class="n">lookup</th><th class="n">update</th><th class="n">peak bytes</th><th class="n">bytes/word</th></tr>
-  <tr><td><code>--bench --n 200</code> (400 queries, 200 updates)</td><td class="n">11.9 µs</td><td class="n">7.3 µs</td><td class="n">5.3 µs</td><td class="n">5,389</td><td class="n">26.9</td></tr>
-  <tr><td><code>--bench --n 1500</code></td><td class="n">88.8 µs</td><td class="n">59.4 µs</td><td class="n">41.6 µs</td><td class="n">42,092</td><td class="n">28.1</td></tr>
-  <tr class="us"><td><code>--bench --n 5000 --queries 10000 --updates 5000</code> (grading scale)</td><td class="n">318.9 µs</td><td class="n">185.8 µs</td><td class="n">147.1 µs</td><td class="n">149,281</td><td class="n">29.9</td></tr>
-  <tr><td>CSV, 200 keys</td><td class="n">12.4 µs</td><td class="n">9.0 µs</td><td class="n">6.9 µs</td><td class="n">6,591</td><td class="n">33.0</td></tr>
-  <tr><td>CSV, 1,500 keys</td><td class="n">100.1 µs</td><td class="n">67.7 µs</td><td class="n">41.9 µs</td><td class="n">50,869</td><td class="n">33.9</td></tr>
-  <tr class="us"><td>CSV, 5,000 keys (grading scale)</td><td class="n">378.5 µs</td><td class="n">229.3 µs</td><td class="n">171.3 µs</td><td class="n">176,022</td><td class="n">35.2</td></tr>
+  <tr><td><code>--bench --n 200</code> (400 queries, 200 updates)</td><td class="n">12.3 µs</td><td class="n">7.3 µs</td><td class="n">5.3 µs</td><td class="n">5,389</td><td class="n">26.9</td></tr>
+  <tr><td><code>--bench --n 1500</code></td><td class="n">89.5 µs</td><td class="n">58.4 µs</td><td class="n">41.3 µs</td><td class="n">42,092</td><td class="n">28.1</td></tr>
+  <tr class="us"><td><code>--bench --n 5000 --queries 10000 --updates 5000</code> (grading scale)</td><td class="n">326.4 µs</td><td class="n">180.4 µs</td><td class="n">144.1 µs</td><td class="n">149,281</td><td class="n">29.9</td></tr>
+  <tr><td>CSV, 200 keys</td><td class="n">12.7 µs</td><td class="n">8.8 µs</td><td class="n">7.0 µs</td><td class="n">6,591</td><td class="n">33.0</td></tr>
+  <tr><td>CSV, 1,500 keys</td><td class="n">101.0 µs</td><td class="n">67.5 µs</td><td class="n">42.0 µs</td><td class="n">50,869</td><td class="n">33.9</td></tr>
+  <tr class="us"><td>CSV, 5,000 keys (grading scale)</td><td class="n">382.9 µs</td><td class="n">227.6 µs</td><td class="n">161.6 µs</td><td class="n">176,022</td><td class="n">35.2</td></tr>
   <tr><td><code>--bench --workload data/small.csv</code> (1,000 keys)</td><td class="n">62.6 µs</td><td class="n">49.8 µs</td><td class="n">31.1 µs</td><td class="n">32,540</td><td class="n">32.5</td></tr>
 </table>
 <p>A byte-exact model of our layout (Σ(14 + L) + 8·4096 + 40) predicts the 5,000-key CSV peak as 176,022 bytes, exactly the measured value. That is about 35 bytes per word, 14.6 of which are the characters themselves. On the same workload the typical <code>Record</code>-node design measured 298,782 bytes, and open addressing over a <code>Record</code> array measured 674,190 bytes.</p>

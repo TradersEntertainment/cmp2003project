@@ -1,0 +1,718 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>FindFast Hash Lab</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;600&family=Space+Grotesk:wght@500;700&display=swap">
+</head>
+<body style="margin:0">
+<style>
+/* Layout: short header with language switch, then a two-column workbench (live table left, running code right), then reading notes. */
+:root{
+  --bg:#EEF1F6; --surface:#FFFFFF; --sunk:#E3E8F0; --ink:#152033; --muted:#566378; --line:#CBD3E0;
+  --accent:#2450C8; --accent-soft:#DCE5FB; --on-accent:#FFFFFF;
+  --ok:#157A52; --ok-soft:#D6F0E3; --bad:#B3322B; --bad-soft:#F8DDDA; --warn:#8A5A00; --warn-soft:#FBEBC4;
+  --fp:#7A3FB0; --fp-soft:#EEE3F8;
+  --f-display:"Space Grotesk","Segoe UI",system-ui,sans-serif;
+  --f-body:"Inter","Segoe UI",system-ui,sans-serif;
+  --f-mono:"JetBrains Mono",ui-monospace,"SF Mono",Menlo,Consolas,monospace;
+}
+@media (prefers-color-scheme: dark){ :root:not([data-theme="light"]){
+  --bg:#0E131B; --surface:#171E29; --sunk:#111722; --ink:#E6EBF4; --muted:#98A5BA; --line:#2C3748;
+  --accent:#86A7FF; --accent-soft:#1F2D52; --on-accent:#0E131B;
+  --ok:#5FD3A0; --ok-soft:#143527; --bad:#FF8A80; --bad-soft:#44201E; --warn:#F2C45A; --warn-soft:#3B2E0E;
+  --fp:#C9A2F2; --fp-soft:#33224A;
+  color-scheme:dark } }
+:root[data-theme="dark"]{
+  --bg:#0E131B; --surface:#171E29; --sunk:#111722; --ink:#E6EBF4; --muted:#98A5BA; --line:#2C3748;
+  --accent:#86A7FF; --accent-soft:#1F2D52; --on-accent:#0E131B;
+  --ok:#5FD3A0; --ok-soft:#143527; --bad:#FF8A80; --bad-soft:#44201E; --warn:#F2C45A; --warn-soft:#3B2E0E;
+  --fp:#C9A2F2; --fp-soft:#33224A;
+  color-scheme:dark }
+
+:root:not([data-lang="tr"]) .tr{display:none!important}
+:root[data-lang="tr"] .en{display:none!important}
+
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--ink);font-family:var(--f-body);font-size:15px;line-height:1.55}
+.wrap{max-width:1160px;margin:0 auto;padding-block:26px 56px;
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));
+  display:flex;flex-direction:column;gap:22px}
+h1,h2,h3{font-family:var(--f-display);text-wrap:balance;margin:0;line-height:1.15}
+h1{font-size:clamp(26px,4.4vw,38px);font-weight:700;letter-spacing:-.01em}
+h2{font-size:22px;font-weight:700}
+h3{font-size:15px;font-weight:700}
+p{margin:0}
+.eyebrow{font-size:12px;letter-spacing:.09em;text-transform:uppercase;color:var(--muted);font-weight:600}
+.lede{color:var(--muted);max-width:68ch}
+header{display:flex;flex-wrap:wrap;gap:12px 24px;justify-content:space-between;align-items:flex-start}
+.head-text{display:flex;flex-direction:column;gap:8px;min-width:0;flex:1 1 520px}
+.lang{display:flex;border:1px solid var(--line);border-radius:8px;overflow:hidden;flex:0 0 auto}
+.lang button{border:0;border-radius:0;padding:7px 12px;font-weight:600;background:var(--surface);color:var(--muted)}
+.lang button[aria-pressed="true"]{background:var(--accent);color:var(--on-accent)}
+code,.mono{font-family:var(--f-mono);font-size:.92em}
+code,pre,.mono,.hash-line,.node,input{font-variant-ligatures:none}
+
+/* controls */
+.panel{background:var(--surface);border:1px solid var(--line);border-radius:10px}
+.controls{padding:14px;display:flex;flex-direction:column;gap:12px}
+.row{display:flex;flex-wrap:wrap;gap:8px;align-items:flex-end}
+.field{display:flex;flex-direction:column;gap:4px;min-width:0}
+.field label{font-size:12px;color:var(--muted);font-weight:500}
+input[type=text],input[type=number]{font:inherit;font-family:var(--f-mono);font-size:14px;padding:8px 10px;border:1px solid var(--line);
+  border-radius:6px;background:var(--bg);color:var(--ink);width:230px;max-width:100%}
+#in-list{width:130px}
+button{font:inherit;font-weight:600;font-size:14px;padding:8px 13px;border-radius:6px;border:1px solid var(--line);
+  background:var(--surface);color:var(--ink);cursor:pointer}
+button:hover:not(:disabled){border-color:var(--accent)}
+button:disabled{opacity:.45;cursor:not-allowed}
+button.primary{background:var(--accent);color:var(--on-accent);border-color:var(--accent)}
+button.ghost{font-weight:500;color:var(--muted)}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.sep{flex:1 1 auto}
+.play{display:flex;flex-wrap:wrap;gap:10px 14px;align-items:center;border-top:1px solid var(--line);padding-top:12px;font-size:13px;color:var(--muted)}
+.play label{display:flex;align-items:center;gap:6px}
+input[type=range]{accent-color:var(--accent);width:120px}
+
+/* caption */
+.caption{padding:14px 16px;display:flex;flex-direction:column;gap:8px;border-left:4px solid var(--accent);border-radius:4px 10px 10px 4px}
+#caption-text{font-size:16px;min-height:3.1em}
+.result{font-family:var(--f-mono);font-size:13px;padding:3px 9px;border-radius:99px;align-self:flex-start}
+.result.ok{background:var(--ok-soft);color:var(--ok)} .result.no{background:var(--bad-soft);color:var(--bad)}
+
+/* bench */
+.bench{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:16px;align-items:start}
+@media (max-width:900px){.bench{grid-template-columns:minmax(0,1fr)}}
+.viz{padding:14px;display:flex;flex-direction:column;gap:14px;min-width:0}
+.viz-head{display:flex;flex-wrap:wrap;justify-content:space-between;gap:6px 16px;align-items:baseline}
+.stats{font-family:var(--f-mono);font-size:12.5px;color:var(--muted);font-variant-numeric:tabular-nums}
+.stats b{color:var(--ink);font-weight:600}
+
+.hash{background:var(--sunk);border-radius:8px;padding:10px 12px;display:flex;flex-direction:column;gap:8px;font-size:13px;min-width:0}
+.blocks{display:flex;gap:6px;overflow-x:auto;padding-bottom:2px}
+.blk{flex:0 0 auto;display:flex;flex-direction:column;gap:3px;padding:5px 7px;border-radius:6px;background:var(--surface);border:1px solid var(--line);animation:rise .35s both}
+.blk .chars{font-family:var(--f-mono);font-weight:600;font-size:14px;letter-spacing:.06em}
+.blk .lab{font-family:var(--f-mono);font-size:10px;color:var(--muted)}
+.blk.tail{border-style:dashed}
+.hash-line{font-family:var(--f-mono);font-size:12.5px;overflow-x:auto;white-space:nowrap}
+.hash-line b.top{color:var(--accent);text-decoration:underline;text-underline-offset:3px}
+.hash-line b.fpb{color:var(--fp)}
+
+.buckets{display:flex;flex-direction:column;gap:6px}
+.bucket{display:grid;grid-template-columns:46px minmax(0,1fr);gap:8px;align-items:center}
+.bidx{font-family:var(--f-mono);font-size:13px;text-align:center;padding:9px 0;border-radius:6px;background:var(--sunk);
+  border:1px solid var(--line);transition:background .25s,color .25s}
+.bucket.active .bidx{background:var(--accent);color:var(--on-accent);border-color:var(--accent)}
+.chain{display:flex;align-items:center;gap:6px;overflow-x:auto;padding:3px 2px;min-width:0}
+.arrow{color:var(--muted);flex:0 0 auto;font-family:var(--f-mono);border-radius:4px;padding:0 2px}
+.arrow.link{background:var(--warn-soft);color:var(--warn);font-weight:600;outline:1px dashed var(--warn)}
+.nil{font-family:var(--f-mono);font-size:11px;color:var(--muted);flex:0 0 auto}
+.node{flex:0 0 auto;border:1.5px solid var(--line);background:var(--bg);border-radius:6px;padding:4px 8px;display:flex;flex-direction:column;
+  line-height:1.25;transition:border-color .2s,background .2s}
+.node .w{font-family:var(--f-mono);font-weight:600;font-size:13px}
+.node .m{font-family:var(--f-mono);font-size:10.5px;color:var(--muted);display:flex;gap:6px;align-items:center}
+.fp{font-family:var(--f-mono);font-size:10.5px;color:var(--fp);background:var(--fp-soft);border-radius:4px;padding:0 4px;font-weight:600}
+.node.skip{border-color:var(--fp);background:var(--fp-soft);opacity:.8}
+.node.cmp{border-color:var(--warn);background:var(--warn-soft)}
+.node.miss{border-color:var(--bad);background:var(--bad-soft);animation:shake .3s}
+.node.hit{border-color:var(--ok);background:var(--ok-soft)}
+.node.new{border-color:var(--accent);background:var(--accent-soft);animation:pop .35s}
+.node.gone{border-color:var(--bad);background:var(--bad-soft);opacity:.55;text-decoration:line-through}
+.side-row{display:flex;align-items:center;gap:8px;padding:8px 10px;border:1px dashed var(--line);border-radius:8px;min-width:0;flex-wrap:wrap}
+.side-row .tag{font-family:var(--f-mono);font-size:12px;color:var(--muted);flex:0 0 auto}
+.empty-arr{border:1px dashed var(--line);border-radius:8px;padding:14px;text-align:center;color:var(--muted);font-size:13px}
+
+.layout{display:flex;border-radius:6px;overflow:hidden;font-family:var(--f-mono);font-size:11px;border:1px solid var(--line);min-width:0}
+.layout div{padding:6px 4px;text-align:center;border-right:1px solid var(--line);background:var(--surface);min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.layout div:last-child{border-right:0}
+.layout small{display:block;color:var(--muted)}
+.layout .c-fp{background:var(--fp-soft)} .layout .c-txt{background:var(--accent-soft)}
+
+.mem{display:flex;flex-direction:column;gap:6px;font-size:12.5px}
+.mem-row{display:grid;grid-template-columns:minmax(0,170px) minmax(0,1fr) 66px;gap:8px;align-items:center}
+.mem-row span:last-child{font-family:var(--f-mono);text-align:right;font-variant-numeric:tabular-nums}
+.bar{height:10px;background:var(--sunk);border-radius:99px;overflow:hidden}
+.bar i{display:block;height:100%;border-radius:99px;transition:width .4s}
+.bar .live{background:var(--accent)} .bar .peak{background:var(--ok)} .bar .classic{background:var(--bad)}
+
+/* code */
+.code{padding:0;overflow:hidden;min-width:0}
+.code-head{padding:10px 14px;border-bottom:1px solid var(--line);display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap;align-items:baseline}
+.code-head span{font-size:12px;color:var(--muted)}
+pre{margin:0;padding:10px 0;overflow-x:auto;font-family:var(--f-mono);font-size:11.8px;line-height:1.7}
+.ln{display:block;padding:0 14px;white-space:pre;border-left:3px solid transparent}
+.ln.on{background:var(--accent-soft);border-left-color:var(--accent)}
+.ln .c{color:var(--muted)}
+
+/* notes */
+.notes{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,300px),1fr));gap:22px 28px}
+.note{display:flex;flex-direction:column;gap:6px;min-width:0}
+.note p{color:var(--muted)}
+.tbl{overflow-x:auto}
+table{border-collapse:collapse;width:100%;font-size:14px}
+th,td{text-align:left;padding:7px 10px;border-bottom:1px solid var(--line)}
+th{font-size:12px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);font-weight:600}
+td.n{text-align:right;font-variant-numeric:tabular-nums;font-family:var(--f-mono);font-size:13px}
+tr.us td{font-weight:600}
+details{border-bottom:1px solid var(--line);padding:9px 0}
+summary{cursor:pointer;font-weight:600}
+details p{color:var(--muted);padding-top:6px;max-width:72ch}
+.section{display:flex;flex-direction:column;gap:12px}
+.fine{font-size:12.5px;color:var(--muted)}
+
+@keyframes pop{from{transform:scale(.6);opacity:0}to{transform:none;opacity:1}}
+@keyframes rise{from{transform:translateY(6px);opacity:0}to{transform:none;opacity:1}}
+@keyframes shake{25%{transform:translateX(-3px)}75%{transform:translateX(3px)}}
+.blocks.still .blk{animation:none}
+@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+</style>
+
+<div class="wrap">
+  <header>
+    <div class="head-text">
+      <span class="eyebrow"><span lang="en">CMP2003 · FindFast · </span><span class="en">compact chained hash table</span><span class="tr">sıkı düğümlü zincirli hash tablosu</span></span>
+      <h1><span class="en">What does our index do with a word?</span><span class="tr">İndeksimiz bir kelimeyle ne yapıyor?</span></h1>
+      <p class="lede"><span class="en">Type a word and pick an operation. The table on the left changes step by step while the matching line of our real code lights up on the right.</span><span class="tr">Bir kelime yaz ve bir işlem seç. Soldaki tablo adım adım değişirken sağda gerçek kodumuzun o anda çalışan satırı yanar.</span></p>
+    </div>
+    <div class="lang" role="group" aria-label="Language">
+      <button type="button" id="lang-en" aria-pressed="true">English</button>
+      <button type="button" id="lang-tr" aria-pressed="false">Türkçe</button>
+    </div>
+  </header>
+
+  <section class="panel controls" aria-label="Controls">
+    <form class="row" id="op-form">
+      <div class="field"><label for="in-word"><span class="en">Word (letters and digits)</span><span class="tr">Kelime (harf ve rakam)</span></label><input type="text" id="in-word" value="sharedprefixarchive0003ae" maxlength="40" autocomplete="off" spellcheck="false"></div>
+      <div class="field"><label for="in-list"><span class="en">List ID</span><span class="tr">Liste numarası</span></label><input type="number" id="in-list" value="42" min="0" max="4294967295"></div>
+      <button type="submit" class="primary op" id="btn-put">put</button>
+      <button type="button" class="op" id="btn-find">find</button>
+      <button type="button" class="op" id="btn-erase">erase</button>
+      <button type="button" class="op" id="btn-clear">clear</button>
+      <span class="sep"></span>
+      <button type="button" class="ghost op" id="btn-rand"><span class="en">Add a random word</span><span class="tr">Rastgele kelime ekle</span></button>
+      <button type="button" class="ghost op" id="btn-reset"><span class="en">Start over</span><span class="tr">Baştan başlat</span></button>
+    </form>
+    <div class="play">
+      <label><input type="checkbox" id="chk-auto" checked> <span class="en">Autoplay</span><span class="tr">Otomatik oynat</span></label>
+      <label><span class="en">Speed</span><span class="tr">Hız</span> <input type="range" id="rng-speed" min="300" max="2600" step="100" value="1400" aria-label="Step duration"></label>
+      <button type="button" id="btn-next" disabled><span class="en">Next step →</span><span class="tr">Sonraki adım →</span></button>
+      <span id="grow-hint"></span>
+    </div>
+  </section>
+
+  <section class="panel caption" aria-live="polite">
+    <p id="caption-text"></p>
+    <span class="result" id="result" hidden></span>
+  </section>
+
+  <section class="bench">
+    <div class="panel viz">
+      <div class="viz-head"><h3><span class="en">The table</span><span class="tr">Tablo</span></h3><span class="stats" id="stats"></span></div>
+      <div class="hash" id="hash" hidden></div>
+      <div id="side"></div>
+      <div class="buckets" id="buckets"></div>
+      <div class="mem" id="mem"></div>
+    </div>
+    <div class="panel code">
+      <div class="code-head"><h3 id="code-title">put</h3><span id="code-sub"></span></div>
+      <pre id="code"></pre>
+    </div>
+  </section>
+
+  <section class="section">
+    <h2><span class="en">One node, one allocation</span><span class="tr">Bir düğüm, tek bir bellek bloğu</span></h2>
+    <div class="layout" aria-label="Node memory layout">
+      <div style="flex:8">next<small>8 B</small></div><div style="flex:5">list ID<small>4 B</small></div><div class="c-fp" style="flex:3">fp<small>1 B</small></div><div style="flex:3">len<small>1 B</small></div><div class="c-txt" style="flex:12"><span class="en">characters</span><span class="tr">harfler</span><small>L B</small></div>
+    </div>
+    <p class="fine"><span class="en">A word costs 14 + L bytes plus 4–8 bytes of bucket array. At 5,000 keys that is about 35 bytes per word, 14.6 of which are the characters themselves.</span><span class="tr">Bir kelime 14 + L bayt, artı kova dizisinden 4–8 bayt tutar. 5000 anahtarda kelime başına yaklaşık 35 bayt eder; bunun 14,6 baytı harflerin kendisi.</span></p>
+  </section>
+
+  <section class="section">
+    <h2><span class="en">Three ideas that win the score</span><span class="tr">Puanı kazandıran üç fikir</span></h2>
+    <div class="notes">
+      <div class="note"><h3><span class="en">1. Everything in one block</span><span class="tr">1. Her şey tek blokta</span></h3>
+        <p><span class="en">Link, list ID, fingerprint, length and characters share one <code>memory::allocate</code> block. The supplied <code>Record</code> would need 24 bytes plus a second allocation for the characters.</span><span class="tr">Bağlantı, liste numarası, parmak izi, uzunluk ve harfler tek bir <code>memory::allocate</code> bloğunu paylaşıyor. Şablondaki <code>Record</code> 24 bayt artı harfler için ikinci bir ayırma isterdi.</span></p></div>
+      <div class="note"><h3><span class="en">2. A one-byte fingerprint</span><span class="tr">2. Bir baytlık parmak izi</span></h3>
+        <p><span class="en">The low 8 bits of the hash sit in every node. A different word is rejected after reading that one byte, 255 times out of 256, without comparing characters. It made the engine about 10% faster.</span><span class="tr">Hash'in alt 8 biti her düğümde duruyor. Farklı bir kelime, 256'da 255 ihtimalle bu tek bayta bakılarak, harf karşılaştırmadan elenir. Motoru yaklaşık %10 hızlandırdı.</span></p></div>
+      <div class="note"><h3><span class="en">3. Release first, then allocate</span><span class="tr">3. Önce bırak, sonra ayır</span></h3>
+        <p><span class="en">When the table grows, all nodes are parked on one temporary list, the old bucket array is released, and only then is the new one allocated. The two arrays never exist together, so growing never needs more than the new table. The red bar shows what the usual order would cost at that moment.</span><span class="tr">Tablo büyürken bütün düğümler geçici bir listeye park edilir, eski kova dizisi bırakılır, yenisi ancak ondan sonra istenir. İki dizi hiçbir an birlikte durmaz; büyüme yeni tablodan fazlasını istemez. Kırmızı çubuk, alışılmış sıranın o anda neye mal olacağını gösterir.</span></p></div>
+    </div>
+  </section>
+
+  <section class="section">
+    <h2><span class="en">How we chose it</span><span class="tr">Nasıl seçtik</span></h2>
+    <p class="fine"><span class="en">Designs that all pass every test, raced on one machine (16 workloads, 31 runs each, median, official formula). Ratios are relative to the best of the set.</span><span class="tr">Hepsi bütün testleri geçen tasarımlar aynı makinede yarıştı (16 iş yükü, her biri 31 koşu, ortanca, resmî formül). Oranlar setin en iyisine göredir.</span></p>
+    <div class="tbl"><table>
+      <tr><th><span class="en">Design</span><span class="tr">Tasarım</span></th><th>T</th><th>M</th><th>E</th></tr>
+      <tr class="us"><td><span class="en">Chained, compact node + fingerprint (ours)</span><span class="tr">Zincirli, sıkı düğüm + parmak izi (bizimki)</span></td><td class="n">0.89</td><td class="n">0.93</td><td class="n">9.1</td></tr>
+      <tr><td><span class="en">Chained, compact node, no fingerprint</span><span class="tr">Zincirli, sıkı düğüm, parmak izi yok</span></td><td class="n">0.81</td><td class="n">0.96</td><td class="n">8.7</td></tr>
+      <tr><td><span class="en">Open addressing + control bytes</span><span class="tr">Açık adresleme + kontrol baytları</span></td><td class="n">0.84</td><td class="n">0.88</td><td class="n">8.4</td></tr>
+      <tr><td><span class="en">First prototype (20-byte header, byte-wise hash)</span><span class="tr">İlk prototip (20 baytlık başlık, harf harf hash)</span></td><td class="n">0.76</td><td class="n">0.78</td><td class="n">7.7</td></tr>
+      <tr><td><span class="en">Typical: <code>Record</code> nodes + <code>std::hash</code></span><span class="tr">Tipik: <code>Record</code> düğümleri + <code>std::hash</code></span></td><td class="n">0.68</td><td class="n">0.54</td><td class="n">6.0</td></tr>
+    </table></div>
+  </section>
+
+  <section class="section">
+    <h2><span class="en">Complexity</span><span class="tr">Karmaşıklık</span></h2>
+    <p class="fine"><span class="en">n = stored words, L = word length, b = buckets (n/2 ≤ b ≤ n).</span><span class="tr">n = saklanan kelime, L = kelime uzunluğu, b = kova sayısı (n/2 ≤ b ≤ n).</span></p>
+    <div class="tbl"><table>
+      <tr><th><span class="en">Operation</span><span class="tr">İşlem</span></th><th><span class="en">Average</span><span class="tr">Ortalama</span></th><th><span class="en">Worst</span><span class="tr">En kötü</span></th></tr>
+      <tr><td><code>put</code> / <code>find</code> / <code>erase</code></td><td>O(L) <span class="en">(put amortised)</span><span class="tr">(put amortize)</span></td><td>O(n·L)</td></tr>
+      <tr><td><code>size</code></td><td>O(1)</td><td>O(1)</td></tr>
+      <tr><td><code>clear</code> / <span class="en">destructor</span><span class="tr">yıkıcı</span></td><td>O(n + b)</td><td>O(n + b)</td></tr>
+      <tr><td><span class="en">Memory</span><span class="tr">Bellek</span></td><td colspan="2">Σ(14 + Lᵢ) + 8·b + 40 <span class="en">bytes</span><span class="tr">bayt</span></td></tr>
+    </table></div>
+  </section>
+
+  <section class="section">
+    <h2><span class="en">If the examiner asks</span><span class="tr">Hoca sorarsa</span></h2>
+    <div>
+      <details><summary><span class="en">Two different words with the same hash?</span><span class="tr">İki farklı kelimenin hash'i aynıysa?</span></summary><p><span class="en">Still correct. The hash and the fingerprint only reject. A word is accepted only after its length and every character match.</span><span class="tr">Yine doğru çalışır. Hash ve parmak izi yalnızca eleme yapar. Bir kelime ancak uzunluğu ve bütün harfleri tutunca kabul edilir.</span></p></details>
+      <details><summary><span class="en">Why the top bits for the bucket and the low bits for the fingerprint?</span><span class="tr">Neden kova için üst bitler, parmak izi için alt bitler?</span></summary><p><span class="en">The bucket count is a power of two, so <code>h &gt;&gt; shift_</code> picks the bucket with one shift and no division. Taking the fingerprint from the other end keeps the two independent, so words in the same bucket still have different fingerprints.</span><span class="tr">Kova sayısı 2'nin kuvveti olduğu için <code>h &gt;&gt; shift_</code> kovayı bölme yapmadan tek kaydırmayla seçer. Parmak izini diğer uçtan almak ikisini bağımsız tutar; aynı kovadaki kelimelerin parmak izleri yine farklı olur.</span></p></details>
+      <details><summary><span class="en">Why read 8 characters at once with <code>char_traits&lt;char&gt;::copy</code>?</span><span class="tr">Neden <code>char_traits&lt;char&gt;::copy</code> ile 8 harf birden okunuyor?</span></summary><p><span class="en">Hashing one character per step made lookups about 30% slower. A pointer cast to <code>uint64_t*</code> would be undefined behaviour on an unaligned address; copying the bytes is always valid and compiles to a single load.</span><span class="tr">Adım başına tek harf işleyen hash aramaları yaklaşık %30 yavaşlatıyordu. <code>uint64_t*</code>'a dönüştürüp okumak hizasız adreste tanımsız davranıştır; baytları kopyalamak her zaman geçerlidir ve tek bir okuma komutuna derlenir.</span></p></details>
+      <details><summary><span class="en">Why is the load factor 2?</span><span class="tr">Yük faktörü neden 2?</span></summary><p><span class="en">We measured 1, 1.5, 2, 2.5, 3 and 4. Lower values are faster but need a bigger bucket array; 2 gave the best combined score.</span><span class="tr">1, 1.5, 2, 2.5, 3 ve 4'ü ölçtük. Küçük değerler daha hızlı ama daha büyük kova dizisi ister; birleşik puan en iyi 2'de çıktı.</span></p></details>
+      <details><summary><span class="en">What does <code>Node** link</code> do in erase?</span><span class="tr"><code>erase</code>'deki <code>Node** link</code> ne yapıyor?</span></summary><p><span class="en">It holds the address of the pointer that leads to the current node: the bucket slot first, then a <code>next</code> field. <code>*link = node-&gt;next</code> removes the node anywhere in the chain without a special case for the head.</span><span class="tr">O anki düğümü gösteren işaretçinin adresini tutar: önce kova gözü, sonra bir <code>next</code> alanı. <code>*link = node-&gt;next</code> düğümü, baş için ayrı durum yazmadan zincirin neresinde olursa olsun çıkarır.</span></p></details>
+      <details><summary><span class="en">What if <code>clear()</code> is called twice?</span><span class="tr"><code>clear()</code> iki kez çağrılırsa?</span></summary><p><span class="en">After the first call the bucket count is 0, so the loop does nothing, and <code>deallocate(nullptr)</code> returns at once. No double free.</span><span class="tr">İlk çağrıdan sonra kova sayısı 0 olur; döngü dönmez ve <code>deallocate(nullptr)</code> hemen döner. Çift serbest bırakma olmaz.</span></p></details>
+    </div>
+    <p class="fine"><span class="en">The demo starts from 4 buckets so that growth appears quickly; the real code starts from 8. The code on the right is the real <code>findfast.cpp</code>, lightly shortened. Memory bars count nodes and the bucket array (the 40-byte index object is left out).</span><span class="tr">Gösterim, büyümeyi çabuk göresin diye 4 kovayla başlıyor; gerçek kod 8 kovayla başlar. Sağdaki kod gerçek <code>findfast.cpp</code>'nin biraz kısaltılmış hâli. Bellek çubukları düğümleri ve kova dizisini sayar (40 baytlık indeks nesnesi dahil değil).</span></p>
+  </section>
+</div>
+
+<script>
+(() => {
+const MAX_LOAD = 2, INIT_BITS = 2;
+let lang = "en";
+try { const s = localStorage.getItem("ff-lang"); if (s === "tr" || s === "en") lang = s; } catch (e) {}
+const tx = (en, tr) => (lang === "tr" ? tr : en);
+
+const HOLDS = [
+  "",
+  "static bool holds(const Node* node, unsigned char print, string_view w) {",
+  "  if (fingerprint_of(node) != print) return false;  // 1 byte",
+  "  const string_view stored = word_of(node);",
+  "  return stored.size() == w.size() && equal_text(stored.data(), w.data(), w.size());",
+  "}" ];
+const CODE = {
+  hash: { title: "hash_of", sub: ["8 characters per step", "adım başına 8 harf"], lines: [
+    "static uint64_t hash_of(string_view word) {",
+    "  uint64_t h = 0x9E3779B97F4A7C15 ^ n;           // the length is part of the hash",
+    "  while (n > 8) {                                // 8 characters per step",
+    "    h = (h ^ load8(p)) * 0xFF51AFD7ED558CCD;",
+    "    h ^= h >> 32;",
+    "    p += 8;  n -= 8;",
+    "  }",
+    "  tail = last 8 chars | two 4-byte reads | bytes;",
+    "  h = (h ^ tail) * 0xC4CEB9FE1A85EC53;          // final avalanche",
+    "  h ^= h >> 29;  h *= 0xFF51AFD7ED558CCD;  h ^= h >> 32;",
+    "  return h;",
+    "}" ] },
+  put: { title: "put", sub: ["insert or replace", "ekle ya da değiştir"], lines: [
+    "void put(string_view word, ListId list) override {",
+    "  const uint64_t h = hash_of(word);",
+    "  const unsigned char print = fingerprint(h);   // low 8 bits",
+    "  if (buckets_) {",
+    "    for (Node* node = buckets_[h >> shift_]; node; node = node->next)",
+    "      if (holds(node, print, word)) { set_list(node, list); return; }",
+    "  }",
+    "  if (!buckets_) rehash(kInitialBits);",
+    "  else if (count_ >= kMaxLoad * bucket_count_) rehash(64 - shift_ + 1);",
+    "  Node*& head = buckets_[h >> shift_];",
+    "  head = make_node(word, list, print, head);  // owned copy",
+    "  ++count_;",
+    "}", ...HOLDS ] },
+  find: { title: "find", sub: ["read only", "salt okunur"], lines: [
+    "bool find(string_view word, ListId& result) override {",
+    "  if (!buckets_) return false;",
+    "  const uint64_t h = hash_of(word);",
+    "  const unsigned char print = fingerprint(h);",
+    "  for (const Node* node = buckets_[h >> shift_]; node; node = node->next)",
+    "    if (holds(node, print, word)) { result = list_of(node); return true; }",
+    "  return false;                       // result untouched",
+    "}", ...HOLDS ] },
+  erase: { title: "erase", sub: ["pointer to a pointer", "işaretçinin işaretçisi"], lines: [
+    "bool erase(string_view word) override {",
+    "  if (!buckets_) return false;",
+    "  const uint64_t h = hash_of(word);",
+    "  const unsigned char print = fingerprint(h);",
+    "  for (Node** link = &buckets_[h >> shift_]; *link;",
+    "       link = &(*link)->next) {",
+    "    Node* node = *link;",
+    "    if (holds(node, print, word)) {",
+    "      *link = node->next;                 // unlink",
+    "      memory::deallocate(node);",
+    "      --count_;",
+    "      return true;",
+    "    }",
+    "  }",
+    "  return false;",
+    "}", ...HOLDS ] },
+  rehash: { title: "rehash", sub: ["growing without a memory spike", "bellek sıçraması olmadan büyüme"], lines: [
+    "void rehash(unsigned bits) {",
+    "  Node* all = nullptr;                    // 1. one temporary list",
+    "  for (size_t i = 0; i < bucket_count_; ++i)",
+    "    /* move every node of bucket i to the front of all */",
+    "  memory::deallocate(buckets_);           // 2. release the old array FIRST",
+    "  bucket_count_ = size_t(1) << bits;  shift_ = 64 - bits;",
+    "  buckets_ = (Node**) memory::allocate(bucket_count_ * sizeof(Node*));",
+    "  for (size_t i = 0; i < bucket_count_; ++i) buckets_[i] = nullptr;",
+    "  while (all) {                           // 3. redistribute",
+    "    Node* node = all;  all = node->next;",
+    "    Node*& head = buckets_[hash_of(word_of(node)) >> shift_];",
+    "    node->next = head;  head = node;",
+    "  }",
+    "}" ] },
+  clear: { title: "clear", sub: ["the destructor calls it too", "yıkıcı da bunu çağırır"], lines: [
+    "void clear() override {",
+    "  for (size_t i = 0; i < bucket_count_; ++i) free_chain(buckets_[i]);",
+    "  memory::deallocate(buckets_);          // deallocate(nullptr) is a no-op",
+    "  buckets_ = nullptr;",
+    "  bucket_count_ = 0;  count_ = 0;  shift_ = 64;",
+    "}",
+    "",
+    "static void free_chain(Node* node) {",
+    "  while (node) {",
+    "    Node* next = node->next;             // read the link first",
+    "    memory::deallocate(node);",
+    "    node = next;",
+    "  }",
+    "}" ] },
+};
+const PUT_HOLDS = 14, FIND_HOLDS = 9, ERASE_HOLDS = 17;   // first line of holds() in each listing (after the blank)
+
+/* ---------- the real 64-bit hash, ported with BigInt ---------- */
+const M64 = (1n << 64n) - 1n, K0 = 0x9E3779B97F4A7C15n, K1 = 0xFF51AFD7ED558CCDn, K2 = 0xC4CEB9FE1A85EC53n;
+const enc = new TextEncoder();
+function loadLE(b, off, k) { let v = 0n; for (let i = k - 1; i >= 0; i--) v = (v << 8n) | BigInt(b[off + i]); return v; }
+function hashOf(w) {
+  const b = enc.encode(w); let n = b.length, p = 0, h = (K0 ^ BigInt(n)) & M64, tail;
+  const blocks = [];
+  if (n >= 8) {
+    while (n > 8) { h = ((h ^ loadLE(b, p, 8)) * K1) & M64; h ^= h >> 32n; blocks.push({ text: w.slice(p, p + 8), h }); p += 8; n -= 8; }
+    tail = loadLE(b, p + n - 8, 8); blocks.push({ text: w.slice(p + n - 8, p + n), tail: true, overlap: n < 8 });
+  } else if (n >= 4) { tail = loadLE(b, 0, 4) | (loadLE(b, n - 4, 4) << 32n); blocks.push({ text: w, tail: true }); }
+  else { tail = 0n; for (let i = 0; i < n; i++) tail = ((tail << 8n) | BigInt(b[i])) & M64; blocks.push({ text: w || "∅", tail: true }); }
+  h = ((h ^ tail) * K2) & M64; h ^= h >> 29n; h = (h * K1) & M64; h ^= h >> 32n;
+  return { w, value: h, blocks, fp: Number(h & 255n) };
+}
+const hex64 = v => v.toString(16).toUpperCase().padStart(16, "0");
+const hex2 = v => v.toString(16).toUpperCase().padStart(2, "0");
+const bucketOf = (h, bits) => Number(h >> BigInt(64 - bits));
+const nodeBytes = w => 14 + w.length;   // varint is 1 byte below 128 characters
+const q = w => "“" + w + "”";
+const $ = id => document.getElementById(id);
+
+let S, V, busy = false, waiter = null, nextId = 1;
+const alloc = b => { S.live += b; S.peak = Math.max(S.peak, S.live); S.classic = Math.max(S.classic, S.live); };
+const free = b => { S.live -= b; };
+
+function seed() {
+  S = { buckets: null, bits: 0, count: 0, temp: null, live: 0, peak: 0, classic: 0 };
+  V = { codeKey: "put", lines: [], hl: {}, bucket: -1, hash: null, pending: null, link: null, freed: false, showBits: false, lastCap: null };
+  for (const [w, l] of [["network22d", 17], ["catalog88", 4], ["data332", 9], ["report1cc", 2], ["security79", 3], ["sharedprefixarchive000246", 0]]) quietPut(w, l);
+  V.lastCap = ["Ready. The table holds six words in four buckets. Try <code>find</code> with “data332”, or <code>put</code> a new word: the third new word makes the table grow, which is the most interesting part.",
+               "Hazır. Tabloda dört kovada altı kelime var. “data332” için <code>find</code> dene ya da yeni bir kelimeyi <code>put</code> ile ekle: üçüncü yeni kelime tabloyu büyütecek, en ilginç kısım o."];
+}
+function quietPut(w, list) {
+  const H = hashOf(w);
+  if (!S.buckets) { S.bits = INIT_BITS; S.buckets = Array.from({ length: 1 << S.bits }, () => []); alloc(8 << S.bits); }
+  S.buckets[bucketOf(H.value, S.bits)].unshift({ id: nextId++, w, list, fp: H.fp });
+  alloc(nodeBytes(w)); S.count++;
+}
+
+/* ---------- drawing ---------- */
+function esc(s) { return s.replace(/&/g, "&amp;").replace(/</g, "&lt;"); }
+function nodeHtml(nd) {
+  return `<div class="node ${V.hl[nd.id] || ""}"><span class="w">${nd.w}</span><span class="m"><span class="fp">fp ${hex2(nd.fp)}</span>list ${nd.list}</span></div>`;
+}
+function render() {
+  const c = CODE[V.codeKey];
+  $("code-title").textContent = c.title; $("code-sub").textContent = tx(c.sub[0], c.sub[1]);
+  $("code").innerHTML = c.lines.map((t, i) => {
+    const k = t.indexOf("//");
+    const body = k < 0 ? esc(t) : esc(t.slice(0, k)) + `<span class="c">${esc(t.slice(k))}</span>`;
+    return `<span class="ln ${V.lines.includes(i) ? "on" : ""}">${body || " "}</span>`;
+  }).join("");
+
+  const n = S.buckets ? S.buckets.length : 0;
+  $("stats").innerHTML = `size() <b>${S.count}</b> · ${tx("buckets", "kova")} <b>${n}</b> · ${tx("limit", "sınır")} <b>${n * MAX_LOAD}</b>`;
+
+  const H = V.hash;
+  $("hash").hidden = !H;
+  if (H) {
+    const still = H.shown ? " still" : ""; H.shown = true;
+    const blocks = H.blocks.map((b, i) => `<div class="blk ${b.tail ? "tail" : ""}" style="animation-delay:${i * 90}ms"><span class="chars">${esc(b.text)}</span><span class="lab">${b.tail ? tx("tail", "kuyruk") + (b.overlap ? tx(" (overlaps)", " (çakışır)") : "") : "h = " + hex64(b.h).slice(0, 8) + "…"}</span></div>`).join("");
+    let bits = "";
+    if (n && V.showBits) {
+      const k = S.bits, hx = hex64(H.value), topBin = (H.value >> 56n).toString(2).padStart(8, "0");
+      bits = `<div class="hash-line">${tx("top", "üst")} ${k} ${tx("bits", "bit")}: <b class="top">${topBin.slice(0, k)}</b>${topBin.slice(k)}… → ${tx("bucket", "kova")} <b class="top">${bucketOf(H.value, k)}</b> · ${tx("low 8 bits", "alt 8 bit")} → ${tx("fingerprint", "parmak izi")} <b class="fpb">${hx.slice(14)}</b></div>`;
+    }
+    $("hash").innerHTML = `<div class="blocks${still}">${blocks}</div><div class="hash-line">hash_of(${q(H.w)}) = <b>${hex64(H.value).slice(0, 14)}<b class="fpb">${hex64(H.value).slice(14)}</b></b></div>${bits}`;
+  }
+
+  let side = "";
+  if (V.pending) side += `<div class="side-row"><span class="tag">${tx("new block", "yeni blok")}</span>${nodeHtml(V.pending)}<span class="fine">13 + 1 + ${V.pending.w.length} = ${nodeBytes(V.pending.w)} ${tx("bytes", "bayt")}</span></div>`;
+  if (S.temp) side += `<div class="side-row"><span class="tag">all →</span><div class="chain">${S.temp.map(nodeHtml).join('<span class="arrow">→</span>')}${S.temp.length ? '<span class="arrow">→</span>' : ""}<span class="nil">nullptr</span></div></div>`;
+  $("side").innerHTML = side;
+
+  if (!S.buckets) {
+    $("buckets").innerHTML = `<div class="empty-arr">${V.freed ? tx("The old bucket array has been released and the new one is not allocated yet. The nodes wait on the temporary list.", "Eski kova dizisi bırakıldı, yenisi henüz ayrılmadı. Düğümler geçici listede bekliyor.") : tx("No bucket array (buckets_ = nullptr). An empty index holds no memory.", "Kova dizisi yok (buckets_ = nullptr). Boş indeks hiç bellek tutmaz.")}</div>`;
+  } else {
+    $("buckets").innerHTML = S.buckets.map((ch, i) => {
+      let h = "";
+      ch.forEach((nd, j) => { h += `<span class="arrow ${V.link && V.link.b === i && V.link.pos === j ? "link" : ""}">→</span>` + nodeHtml(nd); });
+      h += `<span class="arrow ${V.link && V.link.b === i && V.link.pos === ch.length ? "link" : ""}">→</span><span class="nil">nullptr</span>`;
+      return `<div class="bucket ${V.bucket === i ? "active" : ""}"><div class="bidx">[${i}]</div><div class="chain">${h}</div></div>`;
+    }).join("");
+  }
+
+  const max = Math.max(S.classic, 1), pct = v => (100 * v / max).toFixed(1) + "%";
+  $("mem").innerHTML = `
+    <div class="mem-row"><span>${tx("In use now", "Şu an kullanılan")}</span><div class="bar"><i class="live" style="width:${pct(S.live)}"></i></div><span>${S.live} B</span></div>
+    <div class="mem-row"><span>${tx("Peak (our code)", "Tepe (bizim kod)")}</span><div class="bar"><i class="peak" style="width:${pct(S.peak)}"></i></div><span>${S.peak} B</span></div>
+    <div class="mem-row"><span>${tx("Peak (usual growth)", "Tepe (alışılmış büyüme)")}</span><div class="bar"><i class="classic" style="width:${pct(S.classic)}"></i></div><span>${S.classic} B</span></div>`;
+
+  const left = n ? n * MAX_LOAD - S.count : 0;
+  $("grow-hint").textContent = n ? (left > 0 ? tx(`New words before growth: ${left + 1}`, `Büyümeye kalan yeni kelime: ${left + 1}`) : tx("The next new word makes the table grow", "Sıradaki yeni kelime tabloyu büyütecek")) : "";
+  if (V.lastCap && !busy) $("caption-text").innerHTML = tx(V.lastCap[0], V.lastCap[1]);
+}
+
+/* ---------- stepping ---------- */
+function step(en, tr, o = {}) {
+  V.lines = o.lines || []; V.hl = o.hl || {}; V.link = o.link || null;
+  if ("bucket" in o) V.bucket = o.bucket;
+  if (o.code) V.codeKey = o.code;
+  V.lastCap = [en, tr];
+  $("caption-text").innerHTML = tx(en, tr);
+  render();
+  return new Promise(res => {
+    const done = () => { clearTimeout(t); waiter = null; $("btn-next").disabled = true; res(); };
+    let t = null; waiter = done;
+    if ($("chk-auto").checked) t = setTimeout(done, +$("rng-speed").value);
+    else $("btn-next").disabled = false;
+  });
+}
+function finish(en, tr, res, ok, keepHl) {
+  V.lines = []; if (!keepHl) V.hl = {}; V.link = null; V.pending = null; V.freed = false;
+  V.lastCap = [en, tr];
+  const r = $("result"); r.hidden = !res; r.textContent = res || ""; r.className = "result " + (ok ? "ok" : "no");
+  render();
+}
+async function hashStep(w) {
+  const H = hashOf(w); V.hash = H; V.showBits = false; V.bucket = -1;
+  await step(`<code>hash_of(${q(w)})</code> reads the word 8 characters at a time. Each block is mixed in with a multiplication and a shift-xor; the dashed block is the tail. A final round spreads every character over all 64 bits.`,
+             `<code>hash_of(${q(w)})</code> kelimeyi 8'er harf okur. Her blok bir çarpma ve kaydır-XOR ile karıştırılır; kesikli kutu kuyruktur. Son bir tur, her harfi 64 bitin hepsine yayar.`,
+             { code: "hash", lines: [1, 2, 3, 4, 7, 8, 9] });
+  return H;
+}
+// Walks one chain the way holds() does; returns the node index on a hit or -1.
+async function walk(H, b, codeKey, loopLine, holdsBase, linkMode) {
+  const chain = S.buckets[b];
+  for (let j = 0; j < chain.length; j++) {
+    const nd = chain[j], link = linkMode ? { b, pos: j } : null;
+    if (nd.fp !== H.fp) {
+      await step(`${q(nd.w)}: fingerprint ${hex2(nd.fp)} ≠ ${hex2(H.fp)}. Skipped after reading one byte; its characters are never compared.`,
+                 `${q(nd.w)}: parmak izi ${hex2(nd.fp)} ≠ ${hex2(H.fp)}. Tek bayta bakılıp atlandı; harfleri hiç karşılaştırılmadı.`,
+                 { code: codeKey, lines: [loopLine, holdsBase + 1], hl: { [nd.id]: "skip" }, link });
+      continue;
+    }
+    if (nd.w !== H.w) {
+      await step(`${q(nd.w)}: the fingerprint matches (this happens 1 time in 256), so the length and characters are compared. They differ: not our word.`,
+                 `${q(nd.w)}: parmak izi tuttu (256'da 1 olur), bu yüzden uzunluk ve harfler karşılaştırılıyor. Farklılar: aradığımız kelime değil.`,
+                 { code: codeKey, lines: [loopLine, holdsBase + 2, holdsBase + 3], hl: { [nd.id]: "miss" }, link });
+      continue;
+    }
+    await step(`${q(nd.w)}: fingerprint ${hex2(nd.fp)} matches, the length matches and <code>equal_text</code> compares the characters 8 at a time. Found.`,
+               `${q(nd.w)}: parmak izi ${hex2(nd.fp)} tuttu, uzunluk tuttu ve <code>equal_text</code> harfleri 8'er 8'er karşılaştırdı. Bulundu.`,
+               { code: codeKey, lines: [loopLine, holdsBase + 1, holdsBase + 2, holdsBase + 3], hl: { [nd.id]: "hit" }, link });
+    return j;
+  }
+  return -1;
+}
+
+/* ---------- operations ---------- */
+async function rehash(newBits) {
+  const oldN = S.buckets ? S.buckets.length : 0, newN = 1 << newBits;
+  if (oldN) {
+    await step(`The table holds ${S.count} words = ${oldN} buckets × ${MAX_LOAD}. Before adding another word it doubles to ${newN} buckets. First, every node goes onto one temporary list.`,
+               `Tabloda ${S.count} kelime var = ${oldN} kova × ${MAX_LOAD}. Bir kelime daha eklemeden önce ${newN} kovaya iki katına çıkıyor. Önce her düğüm tek bir geçici listeye alınıyor.`,
+               { code: "rehash", lines: [0, 1], bucket: -1 });
+    S.temp = [];
+    for (let i = 0; i < oldN; i++) {
+      const moved = S.buckets[i].splice(0); if (!moved.length) continue;
+      const hl = {}; for (const nd of moved) { S.temp.unshift(nd); hl[nd.id] = "cmp"; }
+      await step(`Bucket [${i}]: its nodes are linked onto <code>all</code> through their own <code>next</code> pointers. No node moves in memory and nothing new is allocated.`,
+                 `[${i}]. kova: düğümleri kendi <code>next</code> işaretçileriyle <code>all</code> listesine bağlanıyor. Hiçbir düğüm bellekte yer değiştirmiyor, yeni bellek de ayrılmıyor.`,
+                 { code: "rehash", lines: [2, 3], bucket: i, hl });
+    }
+    S.classic = Math.max(S.classic, S.live + 8 * newN);
+    free(8 * oldN); S.buckets = null; V.freed = true;
+    await step(`The trick: the old bucket array is released <b>now</b> (${8 * oldN} bytes back). The usual order allocates the new array first, so for a moment both exist; the red bar shows that peak.`,
+               `Püf noktası: eski kova dizisi <b>şimdi</b> bırakılıyor (${8 * oldN} bayt geri geldi). Alışılmış sıra önce yenisini ayırır ve bir an ikisi birden bellekte durur; kırmızı çubuk o tepeyi gösteriyor.`,
+               { code: "rehash", lines: [4], bucket: -1 });
+  } else {
+    await step(`Nothing is allocated yet. The first <code>put</code> creates the first bucket array.`,
+               `Henüz hiç bellek ayrılmadı. İlk <code>put</code> ilk kova dizisini oluşturuyor.`,
+               { code: "rehash", lines: [0], bucket: -1 });
+  }
+  S.bits = newBits; S.buckets = Array.from({ length: newN }, () => []); alloc(8 * newN); V.freed = false;
+  await step(`New bucket array: ${newN} pointers × 8 bytes = ${8 * newN} bytes, all set to <code>nullptr</code>. Now <code>shift_ = 64 − ${newBits}</code>, so the top ${newBits} bits choose the bucket.`,
+             `Yeni kova dizisi: ${newN} işaretçi × 8 bayt = ${8 * newN} bayt, hepsi <code>nullptr</code>. Artık <code>shift_ = 64 − ${newBits}</code>, yani kovayı üst ${newBits} bit seçiyor.`,
+             { code: "rehash", lines: [5, 6, 7], bucket: -1 });
+  while (S.temp && S.temp.length) {
+    const nd = S.temp.shift(), b = bucketOf(hashOf(nd.w).value, newBits);
+    S.buckets[b].unshift(nd);
+    await step(`${q(nd.w)}: its hash is recomputed from the stored characters (we do not spend 4 bytes per node storing it). Top ${newBits} bits → bucket [${b}].`,
+               `${q(nd.w)}: hash'i saklanan harflerden yeniden hesaplanıyor (saklamak için düğüm başına 4 bayt harcamıyoruz). Üst ${newBits} bit → [${b}]. kova.`,
+               { code: "rehash", lines: [8, 9, 10, 11], bucket: b, hl: { [nd.id]: "new" } });
+  }
+  S.temp = null;
+}
+
+async function opPut(w, list) {
+  const H = await hashStep(w);
+  V.showBits = !!S.buckets;
+  await step(`The fingerprint is the low 8 bits: <b>${hex2(H.fp)}</b>.${S.buckets ? ` The top ${S.bits} bits pick bucket [${bucketOf(H.value, S.bits)}].` : ""}`,
+             `Parmak izi alt 8 bit: <b>${hex2(H.fp)}</b>.${S.buckets ? ` Üst ${S.bits} bit [${bucketOf(H.value, S.bits)}]. kovayı seçiyor.` : ""}`,
+             { code: "put", lines: [1, 2] });
+  if (S.buckets) {
+    const b = bucketOf(H.value, S.bits);
+    await step(`Is the word already stored? Only bucket [${b}] can hold it, so only its chain is walked.`,
+               `Kelime zaten var mı? Onu yalnızca [${b}]. kova tutabilir, bu yüzden sadece o zincir geziliyor.`,
+               { code: "put", lines: [3, 4], bucket: b });
+    const j = await walk(H, b, "put", 4, PUT_HOLDS, false);
+    if (j >= 0) {
+      const nd = S.buckets[b][j], old = nd.list; nd.list = list;
+      await step(`The word exists, so no second record: only its list ID changes, ${old} → ${list}.`,
+                 `Kelime zaten var, ikinci kayıt açılmıyor: yalnızca liste numarası değişiyor, ${old} → ${list}.`,
+                 { code: "put", lines: [5], hl: { [nd.id]: "hit" } });
+      return finish(`Updated. <code>size()</code> is still ${S.count} (test T04 checks exactly this).`,
+                    `Güncellendi. <code>size()</code> hâlâ ${S.count} (T04 testi tam olarak bunu denetler).`, `put → ${tx("replaced", "güncellendi")}, list = ${list}`, true);
+    }
+    await step(`End of the chain: the word is new.`, `Zincirin sonu: kelime yeni.`, { code: "put", lines: [4] });
+  }
+  if (!S.buckets) await rehash(INIT_BITS);
+  else if (S.count >= MAX_LOAD * S.buckets.length) await rehash(S.bits + 1);
+  else await step(`${S.count} words < limit ${S.buckets.length * MAX_LOAD}: no growth needed.`, `${S.count} kelime < sınır ${S.buckets.length * MAX_LOAD}: büyümeye gerek yok.`, { code: "put", lines: [7, 8] });
+  const nd = { id: nextId++, w, list, fp: H.fp }, b = bucketOf(H.value, S.bits);
+  V.showBits = true;
+  alloc(nodeBytes(w)); V.pending = nd;
+  await step(`One block from <code>memory::allocate</code>: 8 (next) + 4 (list) + 1 (fingerprint) + 1 (length) + ${w.length} characters = ${nodeBytes(w)} bytes. The characters are <b>copied</b>, so the caller may destroy its text.`,
+             `<code>memory::allocate</code>'ten tek blok: 8 (next) + 4 (list) + 1 (parmak izi) + 1 (uzunluk) + ${w.length} harf = ${nodeBytes(w)} bayt. Harfler <b>kopyalanıyor</b>, çağıran kendi metnini silse de bizimki kalır.`,
+             { code: "put", lines: [9, 10], bucket: b, hl: { [nd.id]: "new" } });
+  V.pending = null; S.buckets[b].unshift(nd); S.count++;
+  await step(`The node goes to the <b>front</b> of bucket [${b}]: <code>node->next = head; head = node</code>. No need to walk to the end.`,
+             `Düğüm [${b}]. kovanın <b>başına</b> takılıyor: <code>node->next = head; head = node</code>. Sona kadar gitmeye gerek yok.`,
+             { code: "put", lines: [10, 11], bucket: b, hl: { [nd.id]: "new" } });
+  finish(`Inserted. <code>size()</code> is now ${S.count}.`, `Eklendi. <code>size()</code> artık ${S.count}.`, `put → ${tx("new word", "yeni kelime")}, list = ${list}`, true);
+}
+
+async function opFind(w) {
+  V.hash = null; V.bucket = -1;
+  if (!S.buckets) {
+    await step(`The index is empty (<code>buckets_ == nullptr</code>): return <code>false</code> without even hashing.`, `İndeks boş (<code>buckets_ == nullptr</code>): hash bile hesaplamadan <code>false</code> dönülüyor.`, { code: "find", lines: [1] });
+    return finish(`Not found. <code>result</code> was not touched.`, `Bulunamadı. <code>result</code>'a dokunulmadı.`, "find → false", false);
+  }
+  const H = await hashStep(w); V.showBits = true;
+  const b = bucketOf(H.value, S.bits);
+  await step(`Fingerprint <b>${hex2(H.fp)}</b>, bucket [${b}]. Only this one chain is visited; the other ${S.buckets.length - 1} buckets are never touched.`,
+             `Parmak izi <b>${hex2(H.fp)}</b>, kova [${b}]. Yalnızca bu zincir geziliyor; diğer ${S.buckets.length - 1} kovaya hiç dokunulmuyor.`,
+             { code: "find", lines: [2, 3, 4], bucket: b });
+  const j = await walk(H, b, "find", 4, FIND_HOLDS, false);
+  if (j >= 0) {
+    const nd = S.buckets[b][j]; V.hl = { [nd.id]: "hit" };
+    return finish(`Found. <code>find</code> changed nothing in the table: no reordering, no cache.`, `Bulundu. <code>find</code> tabloda hiçbir şeyi değiştirmedi: sıra değişmedi, önbellek yok.`, `find → true, result = ${nd.list}`, true, true);
+  }
+  await step(`Reached <code>nullptr</code>: the word is not stored.`, `<code>nullptr</code>'a gelindi: kelime yok.`, { code: "find", lines: [6] });
+  finish(`Not found. <code>result</code> was never written, so the caller's old value survives (test T05).`, `Bulunamadı. <code>result</code>'a hiç yazılmadı, çağıranın eski değeri duruyor (T05 testi).`, "find → false", false);
+}
+
+async function opErase(w) {
+  V.hash = null; V.bucket = -1;
+  if (!S.buckets) {
+    await step(`The index is empty: return <code>false</code>.`, `İndeks boş: <code>false</code> dönülüyor.`, { code: "erase", lines: [1] });
+    return finish(`Nothing to erase. <code>size()</code> unchanged.`, `Silinecek bir şey yok. <code>size()</code> değişmedi.`, "erase → false", false);
+  }
+  const H = await hashStep(w); V.showBits = true;
+  const b = bucketOf(H.value, S.bits), chain = S.buckets[b];
+  await step(`<code>link</code> holds the <b>address</b> of bucket [${b}]'s head pointer (yellow arrow): we always know which pointer leads to the current node.`,
+             `<code>link</code>, [${b}]. kovanın baş işaretçisinin <b>adresini</b> tutuyor (sarı ok): o anki düğümü hangi işaretçinin gösterdiğini hep biliyoruz.`,
+             { code: "erase", lines: [4, 5], bucket: b, link: { b, pos: 0 } });
+  const j = await walk(H, b, "erase", 7, ERASE_HOLDS, true);
+  if (j >= 0) {
+    const nd = chain[j];
+    await step(`<code>*link = node->next</code>: the yellow pointer now skips this node. No special case for the head of the chain.`,
+               `<code>*link = node->next</code>: sarı işaretçi artık bu düğümün üstünden atlıyor. Zincirin başı için ayrı durum yok.`,
+               { code: "erase", lines: [8], hl: { [nd.id]: "gone" }, link: { b, pos: j } });
+    chain.splice(j, 1); free(nodeBytes(nd.w)); S.count--;
+    await step(`The whole block (${nodeBytes(nd.w)} bytes, characters included) goes back to the allocator and the counter drops.`,
+               `Bloğun tamamı (${nodeBytes(nd.w)} bayt, harfler dahil) geri veriliyor ve sayaç azalıyor.`,
+               { code: "erase", lines: [9, 10, 11], link: { b, pos: j } });
+    return finish(`Erased. <code>size()</code> is now ${S.count}. Erase the same word again: it returns <code>false</code>.`, `Silindi. <code>size()</code> artık ${S.count}. Aynı kelimeyi tekrar sil: <code>false</code> dönecek.`, "erase → true", true);
+  }
+  await step(`End of the chain: the word is not stored.`, `Zincirin sonu: kelime yok.`, { code: "erase", lines: [14], link: { b, pos: chain.length } });
+  finish(`Nothing changed and the counter did not drop (test T10).`, `Hiçbir şey değişmedi, sayaç da azalmadı (T10 testi).`, "erase → false", false);
+}
+
+async function opClear() {
+  V.hash = null; V.bucket = -1;
+  if (!S.buckets) {
+    await step(`Bucket count is 0, so the loop does nothing, and <code>deallocate(nullptr)</code> is harmless. That is why a second <code>clear()</code> is safe.`,
+               `Kova sayısı 0: döngü dönmüyor, <code>deallocate(nullptr)</code> da zararsız. İkinci <code>clear()</code> bu yüzden güvenli.`, { code: "clear", lines: [1, 2, 4] });
+    return finish(`Already empty. No error, no double free (test T14).`, `Zaten boştu. Hata yok, çift serbest bırakma yok (T14 testi).`, "clear → ok", true);
+  }
+  for (let i = 0; i < S.buckets.length; i++) {
+    const ch = S.buckets[i]; if (!ch.length) continue;
+    const hl = {}; ch.forEach(nd => hl[nd.id] = "gone");
+    await step(`Bucket [${i}]: for each node, <b>first</b> read <code>next</code>, <b>then</b> release the node. The other order would read memory that was already given back.`,
+               `[${i}]. kova: her düğümde <b>önce</b> <code>next</code> okunuyor, <b>sonra</b> düğüm bırakılıyor. Ters sıra, geri verilmiş belleği okumak olurdu.`,
+               { code: "clear", lines: [1, 9, 10], bucket: i, hl });
+    ch.forEach(nd => free(nodeBytes(nd.w))); ch.length = 0;
+  }
+  free(8 * S.buckets.length); S.buckets = null; S.bits = 0; S.count = 0;
+  await step(`Finally the bucket array is released and every field is reset.`, `Son olarak kova dizisi bırakılıyor ve bütün alanlar sıfırlanıyor.`, { code: "clear", lines: [2, 3, 4], bucket: -1 });
+  finish(`Empty, and 0 bytes in use: exactly like a new object (test T13). Add a word and the table is rebuilt.`, `Boş ve 0 bayt kullanımda: yeni oluşturulmuş nesneyle aynı (T13 testi). Bir kelime ekle, tablo yeniden kurulsun.`, "clear → ok", true);
+}
+
+/* ---------- controls ---------- */
+function setBusy(b) { busy = b; document.querySelectorAll(".op").forEach(el => el.disabled = b); }
+function word() {
+  const el = $("in-word"); el.value = el.value.toLowerCase().replace(/[^a-z0-9]/g, "");
+  if (!el.value) { V.lastCap = ["Type a word first. The application treats only English letters and digits as word characters.", "Önce bir kelime yaz. Uygulama yalnızca İngilizce harf ve rakamları kelime sayar."]; render(); el.focus(); return null; }
+  return el.value;
+}
+function listId() { let v = Math.floor(+$("in-list").value || 0); v = Math.min(4294967295, Math.max(0, v)); $("in-list").value = v; return v; }
+async function run(fn) { if (busy) return; setBusy(true); $("result").hidden = true; try { await fn(); } finally { setBusy(false); render(); } }
+
+const POOL = ["network14e", "catalog3a4", "data3c4", "report238", "security13", "sharedprefixarchive0002df", "fresh10", "archive", "index", "query", "router", "packet", "sharedprefixarchive00035a", "report2d8", "catalog122", "data13d", "network28a", "security38b", "fresh22", "kernel"];
+$("op-form").addEventListener("submit", e => { e.preventDefault(); const w = word(); if (w) run(() => opPut(w, listId())); });
+$("btn-find").addEventListener("click", () => { const w = word(); if (w) run(() => opFind(w)); });
+$("btn-erase").addEventListener("click", () => { const w = word(); if (w) run(() => opErase(w)); });
+$("btn-clear").addEventListener("click", () => run(opClear));
+$("btn-rand").addEventListener("click", () => {
+  const have = new Set((S.buckets || []).flat().map(n => n.w));
+  const pool = POOL.filter(w => !have.has(w)); const w = pool.length ? pool[Math.floor(Math.random() * pool.length)] : "word" + nextId;
+  const l = Math.floor(Math.random() * 900) + 1; $("in-word").value = w; $("in-list").value = l; run(() => opPut(w, l));
+});
+$("btn-reset").addEventListener("click", () => { if (busy) return; seed(); $("result").hidden = true; render(); });
+$("btn-next").addEventListener("click", () => waiter && waiter());
+$("chk-auto").addEventListener("change", e => { if (e.target.checked && waiter) waiter(); });
+function setLang(l) {
+  lang = l; document.documentElement.setAttribute("data-lang", l); document.documentElement.lang = l;
+  $("lang-en").setAttribute("aria-pressed", l === "en"); $("lang-tr").setAttribute("aria-pressed", l === "tr");
+  try { localStorage.setItem("ff-lang", l); } catch (e) {}
+  if (V.lastCap) $("caption-text").innerHTML = tx(V.lastCap[0], V.lastCap[1]);
+  render();
+}
+$("lang-en").addEventListener("click", () => setLang("en"));
+$("lang-tr").addEventListener("click", () => setLang("tr"));
+
+if (window.matchMedia && matchMedia("(prefers-reduced-motion: reduce)").matches) $("chk-auto").checked = false;
+seed(); setLang(lang);
+window.__ff = { hashOf, hex64 };
+})();
+</script>
+
+</body>
+</html>

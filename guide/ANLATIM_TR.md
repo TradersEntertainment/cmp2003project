@@ -3,6 +3,7 @@
 Bu dosya `findfast.cpp` içindeki kodumuzu baştan sona Türkçe anlatır. Amaç, sözlü sınavda hocanın soracağı **her satırı** rahatça açıklayabilmen.
 
 > İngilizce sürüm (takım arkadaşları ve rapor için): [EXPLANATION.md](EXPLANATION.md). İki dosyanın içeriği aynıdır; burada bazı yerler daha ayrıntılı anlatılıyor.
+> Etkileşimli animasyon (Türkçe/İngilizce): [interactive.html](interactive.html). İndirip tarayıcıda aç.
 
 **İçindekiler**
 
@@ -56,20 +57,22 @@ Puanlar föydeki formülle hesaplandı. Her maliyet, denediğimiz tasarımların
 
 | Tasarım | Zaman oranı T | Bellek oranı M | Puan E (10 üzerinden) |
 |---|---|---|---|
-| **Zincirli, sıkı düğüm + 1 baytlık parmak izi (seçimimiz)** | **0.93** | **0.94** | **9.3** |
-| Zincirli, sıkı düğüm, parmak izi yok | 0.84 | 0.97 | 9.0 |
-| Açık adresleme + 1 baytlık kontrol dizisi | 0.87 | 0.88 | 8.7 |
-| Zincirli, 2'nin kuvveti olmayan büyüme | 0.77 | 0.99 | 8.6 |
-| Zincirli, 20 baytlık düğüm başlığı (ilk prototipimiz) | 0.77 | 0.76 | 7.7 |
-| Açık adresleme, düz işaretçiler | 0.74 | 0.79 | 7.4 |
-| *Tipik: düğümde `Record` + `std::hash`* | 0.70 | 0.54 | 6.1 |
-| *Tipik: `Record` dizisi üzerinde açık adresleme* | 0.82 | 0.25 | 3.8 |
+| **Zincirli, sıkı düğüm + 1 baytlık parmak izi (seçimimiz)** | **0.89** | **0.93** | **9.1** |
+| Zincirli, sıkı düğüm, parmak izi yok | 0.81 | 0.96 | 8.7 |
+| Açık adresleme + 1 baytlık kontrol dizisi | 0.84 | 0.88 | 8.4 |
+| Zincirli, 2'nin kuvveti olmayan büyüme | 0.74 | 0.98 | 8.4 |
+| Açık adresleme, düz işaretçiler | 0.78 | 0.81 | 7.8 |
+| Zincirli, 20 baytlık düğüm başlığı (ilk prototipimiz) | 0.76 | 0.78 | 7.7 |
+| *Tipik: düğümde `Record` + `std::hash`* | 0.68 | 0.54 | 6.0 |
+| *Tipik: `Record` dizisi üzerinde açık adresleme* | 0.72 | 0.26 | 3.8 |
+
+(100 ile 8000 anahtar arasındaki 16 iş yükünün ortalaması; ham sayılar [`research/results/benchmark.txt`](../research/results/benchmark.txt) dosyasında.)
 
 Kazandıran üç fikir:
 
 1. **Kelime başına tek bellek bloğu, harfler bloğun içinde.** Şablondaki `Record` kullanılsaydı kayıt 24 bayt tutardı ve harfler için ikinci bir ayırma gerekirdi. Biz bağlantıyı, liste numarasını, parmak izini, uzunluğu ve harfleri tek bir `14 + L` baytlık bloğa koyuyoruz.
 2. **1 baytlık parmak izi (fingerprint).** Zinciri gezerken başka bir kelimeyi tutan düğümü tek bayta bakarak eliyoruz; harf karşılaştırması yapmıyoruz.
-3. **Bellek sıçraması olmadan büyüme.** Tablo büyürken eski kova dizisini yenisini istemeden **önce** bırakıyoruz (4.9). Puan **tepe** belleğe göre verildiği için bu fark doğrudan puana yansıyor.
+3. **Bellek sıçraması olmadan büyüme.** Tablo büyürken eski kova dizisini yenisini istemeden **önce** bırakıyoruz (4.9). Eski ve yeni dizi hiçbir an birlikte bellekte durmuyor.
 
 Ayrıca kova başına kelime sayısı sınırını (yük faktörü) 1 ile 4 arasında taradık. Hız ve bellek arasındaki en iyi denge **2**'de çıktı; kullandığımız değer bu.
 
@@ -155,16 +158,16 @@ Kelimenin 8 baytını 64 bitlik bir tamsayıya kopyalar. Derleyici bunu **tek** 
 ### 4.4 `hash_of`: kelimeyi 64 bitlik sayıya çevirmek
 
 ```cpp
-uint64_t h = 0x9E3779B97F4A7C15ull ^ n;          // başlangıç: sabit sayı + uzunluk
+uint64_t h = kSeed ^ n;                         // başlangıç: sabit sayı + uzunluk
 while (n > 8) {                                  // her adımda 8 harf
-    h = (h ^ load8(p)) * 0xFF51AFD7ED558CCDull;  // bloğu kat, çarparak yay
+    h = (h ^ load8(p)) * kMulA;                   // bloğu kat, çarparak yay
     h ^= h >> 32;                                // üst yarıyı alt yarıya karıştır
     p += 8; n -= 8;
 }
 tail = ... son 1–8 harf ...
-h = (h ^ tail) * 0xC4CEB9FE1A85EC53ull;          // son karıştırma ("çığ etkisi")
+h = (h ^ tail) * kMulB;                         // son karıştırma ("çığ etkisi")
 h ^= h >> 29;
-h *= 0xFF51AFD7ED558CCDull;
+h *= kMulA;
 h ^= h >> 32;
 ```
 
@@ -244,13 +247,18 @@ char_traits<char>::copy(text, word.data(), word.size());                       /
 Node* all = nullptr;                    // 1. BÜTÜN düğümleri tek bir geçici listeye diz
 her kova için: düğümlerini all'ın başına taşı
 memory::deallocate(buckets_);           // 2. ÖNCE eski diziyi bırak
+buckets_ = nullptr; bucket_count_ = 0;  //    (bırakılmış belleği asla gösterme)
 buckets_ = allocate(yeni boyut);        // 3. ANCAK SONRA yeni diziyi iste
 all'daki her düğümü buckets_[hash >> shift_] zincirinin başına tak   // 4. dağıt
 ```
 
 Klasik yöntem şöyledir: yeni diziyi ayır, düğümleri taşı, eskiyi bırak. Bu yöntemde bir an iki dizi birlikte bellekte durur ve not **tepe** değere göre verilir.
 
-Bizim düğümlerimiz kendi `next` bağlantılarını taşıdığı için hepsini tek bir geçici listeye park edebiliyoruz. Eski dizi o anda gereksiz hâle geliyor; önce onu bırakıp sonra yenisini istiyoruz. **Bu yüzden tepe belleğimiz, son tablonun belleğine eşit.** Bunu bayt bayt bir modelle doğruladık: n = 5000 için modelin öngördüğü tepe (176.022 bayt) ölçümle birebir aynı.
+Bizim düğümlerimiz kendi `next` bağlantılarını taşıdığı için hepsini tek bir geçici listeye park edebiliyoruz. Eski dizi o anda gereksiz hâle geliyor; önce onu bırakıp sonra yenisini istiyoruz. **Böylece büyüme, yeni tablonun kendisinden fazla bellek istemiyor.**
+
+Bunun neyi kazandırdığını dürüstçe söyleyelim. 200, 1500 ve 5000 kelimelik iş yüklerinde tepe değeri zaten son tablo belirliyor, çünkü son iki katına çıkma sondan epey önce oluyor. Örneğin 5000 kelimelik CSV'de son büyüme 4096. kelimede oluyor. O anda alışılmış sıra bile yalnızca yaklaşık 166 KB isterdi; bu da son değer olan 176 KB'nin altında. Bu sıralama, kelime sayısı bir büyümenin hemen ardından durduğunda fark yaratır. Bayt bayt bellek modelimiz 5000 kelimelik tepeyi 176.022 bayt olarak öngörüyor; ölçümle birebir aynı.
+
+`memory::allocate` burada bir gün başarısız olursa (bellek biterse) `buckets_` zaten `nullptr` ve `bucket_count_` 0 olduğu için nesne asla bırakılmış belleği göstermez. Föy, bellek bitmesinin ele alınması gerekmediğini söylüyor; biz yalnızca bunun çift serbest bırakmaya yol açamayacağından emin oluyoruz.
 
 Düğümde hash'in tamamını saklamıyoruz, bu yüzden `rehash` hash'i saklanan harflerden yeniden hesaplıyor. Hash'i saklayıp bunu atlayan bir sürüm de denedik (kelime başına +4 bayt). Pratikte hızlı değildi, o 4 bayta değmedi.
 
@@ -322,7 +330,7 @@ n = saklanan kelime sayısı, L = işlemdeki kelimenin uzunluğu, b = kova sayı
 | kurucu | O(1) | O(1) | bellek ayırmaz |
 | **Bellek** | Σ(14 + Lᵢ) + 8·b + 40 bayt | | kelime başına bir blok + kova dizisi + nesnenin kendisi |
 
-En kötü durum, kelimelerin neredeyse hepsi aynı kovaya düşerse olur. İyi bir 64 bitlik hash ile gerçek kelimelerde bu pratikte imkânsızdır.
+En kötü durum için kelimelerin neredeyse hepsinin aynı kovaya düşmesi gerekir. Sıradan kelime kümelerinde (ardışık sayılar, ortak önekler, bütün 3 harfli kelimeler, 4096 harflik anahtarlar, bir milyona kadar anahtar) zincir uzunlukları ideal rastgele modelle aynı çıktı. Bizim hash fonksiyonumuza karşı **özel olarak üretilmiş** anahtarlar yine çakışabilir. Kriptografik olmayan her hash tablosu gibi biz de garanti değil, beklenen süre veriyoruz.
 
 ## 6. Bellek, bayt bayt
 
@@ -342,14 +350,15 @@ Kelime başına yaklaşık **35 bayt**; bunun 14,6 baytı kelimenin kendisi. Kar
 
 ## 7. Ölçümler
 
-`./findfast --bench` ile 61 koşunun ortancası (Intel Xeon 2.3 GHz, `g++ -std=c++17 -O2`):
+`./findfast --bench` ile 31 koşunun ortancası (Intel Xeon 2.3 GHz, `g++ -std=c++17 -O2`):
 
 | İş yükü | Kurulum | Arama | Güncelleme | Tepe bayt |
 |---|---|---|---|---|
-| sentetik `--n 200` | 11,9 µs | 7,3 µs | 5,3 µs | 5.389 |
-| sentetik `--n 1500` | 88,8 µs | 59,4 µs | 41,6 µs | 42.092 |
-| sentetik `--n 5000 --queries 10000 --updates 5000` | 318,9 µs | 185,8 µs | 147,1 µs | 149.281 |
-| `data/small.csv` benzeri CSV, 5000 anahtar | 378,5 µs | 229,3 µs | 171,3 µs | 176.022 |
+| sentetik `--n 200` | 12,3 µs | 7,3 µs | 5,3 µs | 5.389 |
+| sentetik `--n 1500` | 89,5 µs | 58,4 µs | 41,3 µs | 42.092 |
+| sentetik `--n 5000 --queries 10000 --updates 5000` | 326,4 µs | 180,4 µs | 144,1 µs | 149.281 |
+| `--workload data/small.csv` (1000 anahtar) | 62,6 µs | 49,8 µs | 31,1 µs | 32.540 |
+| `data/small.csv` benzeri CSV, 5000 anahtar | 382,9 µs | 227,6 µs | 161,6 µs | 176.022 |
 
 Bütün tablolar ve onları üreten betikler [`research/`](../research) klasöründe.
 
@@ -384,6 +393,8 @@ g++ -std=c++17 -O2 -Wall -Wextra -pedantic student_tests.cpp -o student_tests
 
 Windows'ta `./findfast` yerine `.\findfast.exe` yaz. Bütün testleri AddressSanitizer + UndefinedBehaviorSanitizer (`-fsanitize=address,undefined`) ile ve clang++ ile de koştuk; hata yok.
 
+> **macOS / clang kullananlar dikkat:** clang, **şablonun kendi** motor kodundaki `move(...)` çağrıları için 7 uyarı verir. Hiç dokunulmamış şablon da aynı 7 uyarıyı verir; g++ hiç vermez. Bunları **düzeltmeye çalışmayın**: yalnızca işaretler arasındaki bölge değiştirilebilir. Bizim bölgemiz iki derleyicide de uyarısız.
+
 ## 10. Hocanın sorabileceği sorular
 
 **Neden ağaç değil de hash tablosu?** Ağaç her işlemde yaklaşık log₂ n kelime karşılaştırması ister. Hash tablosu tek bir hash ve ortalamada ikiden az düğüm ziyareti ister. Prototipte AVL ağacını da ölçtük: n = 5000'de 3–5 kat yavaştı.
@@ -408,7 +419,15 @@ Windows'ta `./findfast` yerine `.\findfast.exe` yaz. Bütün testleri AddressSan
 
 **Varint nedir, neden kullandınız?** Değişken uzunluklu tamsayı: bayt başına 7 bit, en üst bit "devamı var" demek. Normal kelimelerin uzunluğu 8 yerine 1 bayt tutuyor, yine de her uzunluk saklanabiliyor.
 
-**`rehash` neden yeni diziyi istemeden önce eskisini bırakıyor?** Puan tepe belleğe göre. Normalde bir an iki dizi birden bellekte durur. Biz önce bütün düğümleri tek bir geçici listeye taşıdığımız için eski diziye ihtiyaç kalmıyor. Tepe değerimiz son tablonun boyutu kadar.
+**`rehash` neden yeni diziyi istemeden önce eskisini bırakıyor?** Puan tepe belleğe göre veriliyor ve normalde bir an iki dizi birden bellekte durur. Biz önce bütün düğümleri tek bir geçici listeye taşıdığımız için eski diziye ihtiyaç kalmıyor. Böylece büyüme hiçbir an iki dizi istemiyor. Notlandırmada kullanılan boyutlarda tepeyi zaten son tablo belirledi; bu sıralama, kelime sayısı bir büyümenin hemen ardından durduğunda fark yaratır.
+
+**Neden `Key` ya da `Record` kullanmadınız?** Görev 1 "`Key`, `Record`, `memory::make/destroy` **ya da** `memory::allocate/deallocate`" diyor. Biz `memory::allocate` kullanıyoruz ve sahipli kopyayı şablondaki `Key` ile tamamen aynı yolla, `char_traits<char>::copy` ile yapıyoruz. `Record` tabanlı bir düğüm iki ayrı ayırmada 32 + L bayt tutardı; bizimki tek ayırmada 14 + L.
+
+**Parmak izi bir önbellek ya da ikinci bir indeks değil mi?** Hayır. Kelimenin **kendi** hash'inin 8 biti, o kelimenin düğümünde duruyor. Sorgular hakkında hiçbir şey hatırlamıyor. Tek başına asla "bu kelime" kararı vermez, yalnızca eler. Ölçümümüzde zincirdeki yanlış bir kelimeyi yaklaşık 256'da 255 kez eledi.
+
+**`shift_` 64 ile başlıyor; `h >> 64` tanımsız değil mi?** Evet, o yüzden tablo yokken hiç kullanılmıyor. `find` ve `erase`, `buckets_` boşsa hemen dönüyor; `put` önce `rehash`'i çağırıyor, o da `shift_`'i 61 yapıyor. 64 değeri sadece "kullanılan bit sayısı 0" demek.
+
+**Hash sabitleri nereden geliyor?** `kSeed`, 2⁶⁴'ün altın orana bölümü (Fibonacci hashing'de kullanılır). `kMulA` ve `kMulB`, MurmurHash3'ün 64 bitlik son-karıştırıcısının iki çarpanı. Tek sayı oldukları için onlarla çarpmak geri alınabilir bir işlemdir; hiç bilgi kaybolmaz.
 
 **`erase`'deki `Node** link` ne işe yarıyor?** O anki düğümü gösteren işaretçiyi gösterir: önce kovanın kendisini, sonra bir `next` alanını. `*link = node->next` yazınca düğüm zincirin neresinde olursa olsun, ayrı bir durum yazmadan çıkarılır.
 
