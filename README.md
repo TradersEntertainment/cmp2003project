@@ -14,12 +14,13 @@ Our engine for the **CMP2003 Data Structures FindFast challenge**. The search te
 
 | File | What it is |
 |---|---|
-| [`guide/EXPLANATION.md`](guide/EXPLANATION.md) | **Start here.** Every part of the code explained, with complexity, memory model, rule checklist and oral-exam Q&A |
+| [`TESTING.md`](TESTING.md) · [`TESTING_TR.md`](TESTING_TR.md) | **How to test it on your computer**, step by step (English · Türkçe) |
+| [`guide/EXPLANATION.md`](guide/EXPLANATION.md) | **Start here to understand the code.** Every part explained, with complexity, memory model, rule checklist and oral-exam Q&A |
 | [`guide/ANLATIM_TR.md`](guide/ANLATIM_TR.md) | The same guide in Turkish (Türkçe anlatım) |
 | [`guide/interactive.html`](guide/interactive.html) | Interactive animation of put/find/erase/clear and growth, English and Turkish (download and open in a browser) |
 | [`report/report.pdf`](report/report.pdf) | The 2-page report for submission (source: `report/report.html`) |
 | [`CONTRIBUTIONS.md`](CONTRIBUTIONS.md) | Contribution statement (fill in names) |
-| [`research/`](research) | The seven designs we raced, the tools and the raw benchmark results |
+| [`research/`](research) | The designs we raced, the tools and the raw benchmark results |
 
 ## The idea in one picture
 
@@ -37,6 +38,10 @@ node = ONE tracked allocation of 14 + L bytes:
 3. **Growth without a memory spike.** The old bucket array is released *before* the new one is allocated, so growing never needs two arrays at once.
 
 ## Build and run
+
+**One command runs every check:** `.\run_tests.bat` on Windows, `bash run_tests.sh` on Linux/macOS. The last line must say `ALL CHECKS PASSED`. Step-by-step instructions are in [TESTING.md](TESTING.md).
+
+Or one at a time:
 
 ```bash
 g++ -std=c++17 -O2 -Wall -Wextra -pedantic findfast.cpp -o findfast
@@ -63,6 +68,8 @@ On Windows, use `.\findfast.exe` instead of `./findfast`.
 ```
 findfast.cpp          the submission (only the marked region was edited)
 student_tests.cpp     our own tests (includes findfast.cpp, renames its main)
+run_tests.bat / .sh   one-command test run (Windows / Linux, macOS)
+TESTING.md            step-by-step local testing (TESTING_TR.md: Turkish)
 CONTRIBUTIONS.md      contribution statement
 guide/                explanation in English and Turkish
 report/               2-page report (HTML source + PDF)
