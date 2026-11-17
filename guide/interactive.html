@@ -49,7 +49,35 @@ p{margin:0}
 .lede{color:var(--muted);max-width:68ch}
 header{display:flex;flex-wrap:wrap;gap:12px 24px;justify-content:space-between;align-items:flex-start}
 .head-text{display:flex;flex-direction:column;gap:8px;min-width:0;flex:1 1 520px}
+/* test-it-yourself section */
+.os{display:flex;border:1px solid var(--line);border-radius:8px;overflow:hidden;align-self:flex-start}
+.os button{border:0;border-radius:0;padding:7px 14px;font-weight:600;background:var(--surface);color:var(--muted)}
+.os button+button{border-left:1px solid var(--line)}
+.os button[aria-pressed="true"]{background:var(--accent);color:var(--on-accent)}
+.steps{list-style:none;counter-reset:st;display:flex;flex-direction:column;gap:22px;padding:0;margin:0}
+.steps>li{display:grid;grid-template-columns:32px minmax(0,1fr);gap:0 14px;align-items:start}
+.steps>li::before{counter-increment:st;content:counter(st);width:30px;height:30px;border-radius:50%;background:var(--accent);color:var(--on-accent);
+  display:flex;align-items:center;justify-content:center;font-weight:700;font-family:var(--f-display);font-size:15px}
+.step-body{min-width:0;display:flex;flex-direction:column;gap:8px}
+.step-body p{color:var(--muted);max-width:72ch}
+.step-body a{color:var(--accent);font-weight:600}
+.cmds{display:flex;flex-direction:column;gap:6px;min-width:0}
+.cmdline{display:flex;align-items:stretch;border:1px solid var(--line);border-radius:6px;overflow:hidden;background:var(--sunk);min-width:0}
+.cmdline code{flex:1 1 auto;min-width:0;white-space:pre-wrap;overflow-wrap:anywhere;padding:8px 10px;font-size:13px;font-family:var(--f-mono)}
+.cmdline button{flex:0 0 auto;border:0;border-left:1px solid var(--line);border-radius:0;font-size:12px;padding:6px 11px;background:var(--surface)}
+.cmdline button.done{color:var(--ok)}
+pre.out{margin:0;background:var(--sunk);border-radius:6px;padding:10px 12px;font-size:12px;overflow-x:auto;line-height:1.5;font-family:var(--f-mono)}
+pre.out b{color:var(--ok)}
+.manual{display:flex;flex-direction:column;gap:10px}
+.mrow{display:grid;grid-template-columns:minmax(0,1.8fr) minmax(0,1fr);gap:6px 14px;align-items:center;border-bottom:1px solid var(--line);padding-bottom:10px}
+.mrow .exp{font-size:13.5px;color:var(--muted)}
+.mrow .exp code{color:var(--ink)}
+@media (max-width:700px){.mrow{grid-template-columns:minmax(0,1fr)}}
+.callout{border-left:3px solid var(--warn);background:var(--warn-soft);padding:8px 12px;border-radius:4px;font-size:13.5px;color:var(--ink)}
 .links{display:flex;flex-wrap:wrap;gap:8px;margin-top:4px}
+:root[data-os="mac"] .os-win,:root[data-os="linux"] .os-win{display:none!important}
+:root:not([data-os="mac"]) .os-mac{display:none!important}
+:root:not([data-os="linux"]) .os-linux{display:none!important}
 .links a{display:inline-flex;align-items:center;gap:6px;font-size:13.5px;font-weight:600;color:var(--accent);text-decoration:none;border:1px solid var(--line);background:var(--surface);border-radius:999px;padding:5px 12px}
 .links a:hover{border-color:var(--accent)}
 .links a.main{background:var(--accent);color:var(--on-accent);border-color:var(--accent)}
@@ -187,6 +215,7 @@ details p{color:var(--muted);padding-top:6px;max-width:72ch}
         <a href="https://github.com/TradersEntertainment/cmp2003project/blob/claude/funny-cori-gqz0ee/guide/EXPLANATION.md" target="_blank" rel="noopener"><span class="en">Full explanation (English)</span><span class="tr">Tam anlatım (İngilizce)</span></a>
         <a href="https://github.com/TradersEntertainment/cmp2003project/blob/claude/funny-cori-gqz0ee/guide/ANLATIM_TR.md" target="_blank" rel="noopener"><span class="en">Full explanation (Turkish)</span><span class="tr">Tam anlatım (Türkçe)</span></a>
         <a href="https://github.com/TradersEntertainment/cmp2003project/blob/claude/funny-cori-gqz0ee/report/report.pdf" target="_blank" rel="noopener"><span class="en">2-page report (PDF)</span><span class="tr">2 sayfalık rapor (PDF)</span></a>
+        <a href="#test"><span class="en">Test it yourself ↓</span><span class="tr">Kendin test et ↓</span></a>
       </nav>
     </div>
     <div class="lang" role="group" aria-label="Language">
@@ -290,6 +319,58 @@ details p{color:var(--muted);padding-top:6px;max-width:72ch}
       <details><summary><span class="en">What if <code>clear()</code> is called twice?</span><span class="tr"><code>clear()</code> iki kez çağrılırsa?</span></summary><p><span class="en">After the first call the bucket count is 0, so the loop does nothing, and <code>deallocate(nullptr)</code> returns at once. No double free.</span><span class="tr">İlk çağrıdan sonra kova sayısı 0 olur; döngü dönmez ve <code>deallocate(nullptr)</code> hemen döner. Çift serbest bırakma olmaz.</span></p></details>
     </div>
     <p class="fine"><span class="en">The demo starts from 4 buckets so that growth appears quickly; the real code starts from 8. The code on the right is the real <code>findfast.cpp</code>, lightly shortened. Memory bars count nodes and the bucket array (the 40-byte index object is left out).</span><span class="tr">Gösterim, büyümeyi çabuk göresin diye 4 kovayla başlıyor; gerçek kod 8 kovayla başlar. Sağdaki kod gerçek <code>findfast.cpp</code>'nin biraz kısaltılmış hâli. Bellek çubukları düğümleri ve kova dizisini sayar (40 baytlık indeks nesnesi dahil değil).</span></p>
+  </section>
+
+  <section class="section" id="test">
+    <h2><span class="en">Test it on your computer</span><span class="tr">Kendi bilgisayarında test et</span></h2>
+    <p class="fine"><span class="en">About 5 minutes. Pick your system and the commands below change to match it. Every command has a Copy button.</span><span class="tr">Yaklaşık 5 dakika. Sistemini seç; aşağıdaki komutlar ona göre değişir. Her komutun yanında bir Kopyala düğmesi var.</span></p>
+    <div class="os" role="group" aria-label="Operating system">
+      <button type="button" data-os="win" aria-pressed="true">Windows</button>
+      <button type="button" data-os="mac" aria-pressed="false">macOS</button>
+      <button type="button" data-os="linux" aria-pressed="false">Linux</button>
+    </div>
+    <ol class="steps">
+      <li><div class="step-body">
+        <h3><span class="en">Install a C++ compiler (once)</span><span class="tr">C++ derleyicisini kur (bir kez)</span></h3>
+        <p class="os-win"><span class="en">Open a normal PowerShell window (not "Run as administrator") and run these one at a time. If PowerShell asks, type <code>Y</code>.</span><span class="tr">Normal bir PowerShell penceresi aç ("Yönetici olarak çalıştır" değil) ve bunları tek tek çalıştır. Onay isterse <code>Y</code> yaz.</span></p>
+        <p class="os-mac"><span class="en">Open Terminal and run this. A window opens: click Install and wait.</span><span class="tr">Terminal'i aç ve bunu çalıştır. Açılan pencerede Install'a tıkla ve bekle.</span></p>
+        <p class="os-linux"><span class="en">Open a terminal and run:</span><span class="tr">Bir terminal aç ve şunları çalıştır:</span></p>
+        <div class="cmds" data-k="install"></div>
+        <p><span class="en">The last command must print a version number. If the compiler is "not recognised", close the terminal and open a new one.</span><span class="tr">Son komut bir sürüm numarası yazmalı. Derleyici "tanınmıyor" derse terminali kapatıp yenisini aç.</span></p>
+      </div></li>
+      <li><div class="step-body">
+        <h3><span class="en">Download the project</span><span class="tr">Projeyi indir</span></h3>
+        <p><span class="en"><a href="https://github.com/TradersEntertainment/cmp2003project/archive/refs/heads/claude/funny-cori-gqz0ee.zip" target="_blank" rel="noopener">Download the ZIP</a> and extract it. Open a terminal inside the extracted folder, the one that contains <code>findfast.cpp</code>.</span><span class="tr"><a href="https://github.com/TradersEntertainment/cmp2003project/archive/refs/heads/claude/funny-cori-gqz0ee.zip" target="_blank" rel="noopener">ZIP'i indir</a> ve aç. İçinde <code>findfast.cpp</code> olan klasörde bir terminal aç.</span>
+          <span class="os-win"><span class="en">On Windows: right-click an empty area of the folder and choose <i>Open in Terminal</i>.</span><span class="tr">Windows'ta: klasörde boş bir yere sağ tıkla → <i>Terminalde Aç</i>.</span></span></p>
+        <p><span class="en">Check you are in the right folder; this must list the file:</span><span class="tr">Doğru klasörde olduğunu kontrol et; bu komut dosyayı listelemeli:</span></p>
+        <div class="cmds" data-k="check"></div>
+      </div></li>
+      <li><div class="step-body">
+        <h3><span class="en">Run every check with one command</span><span class="tr">Her şeyi tek komutla test et</span></h3>
+        <div class="cmds" data-k="all"></div>
+        <p class="os-win"><span class="en">You can also double-click <code>run_tests.bat</code> in File Explorer.</span><span class="tr"><code>run_tests.bat</code> dosyasına Dosya Gezgini'nde çift tıklayabilirsin de.</span></p>
+        <p><span class="en">It compiles everything and runs 7 checks. <b>The last line must be <code>ALL CHECKS PASSED</code>.</b></span><span class="tr">Her şeyi derler ve 7 kontrol yapar. <b>Son satır <code>ALL CHECKS PASSED</code> olmalı.</b></span></p>
+        <pre class="out">[1/7] Compiling findfast.cpp                <b>PASS</b>: compiled
+[2/7] Official tests                        <b>PASS</b>: SUMMARY 20/20
+[3/7] Larger inputs (4 scales x 3 seeds)    <b>PASS</b>: 20/20 at every scale and seed
+[4/7] Demo                                  <b>PASS</b>: output matches the brief
+[5/7] Benchmark at grading scale            <b>PASS</b>: all answers correct (peak_bytes 149281)
+[6/7] Benchmark on data/small.csv           <b>PASS</b>: all answers correct (peak_bytes 32540)
+[7/7] Our own tests                         <b>PASS</b>: SUMMARY 11/11
+
+<b>ALL CHECKS PASSED</b></pre>
+      </div></li>
+      <li><div class="step-body">
+        <h3><span class="en">Or run the commands one at a time</span><span class="tr">Ya da komutları tek tek çalıştır</span></h3>
+        <div class="manual" id="manual"></div>
+        <p class="callout os-mac"><span class="en">On macOS, clang prints 7 warnings about <code>move(...)</code>. They are in the teacher's part of the template, not in our code. Do not change them: only the marked region may be edited.</span><span class="tr">macOS'ta clang <code>move(...)</code> hakkında 7 uyarı verir. Bunlar şablonun hocaya ait kısmında, bizim kodumuzda değil. Değiştirme: yalnızca işaretli bölge değiştirilebilir.</span></p>
+      </div></li>
+      <li><div class="step-body">
+        <h3><span class="en">Submit to the Engine Board</span><span class="tr">Engine Board'a gönder</span></h3>
+        <p><span class="en">Upload only <code>findfast.cpp</code> to the submission system on the course page. It runs the hidden tests and the large workloads on the grading computer. It must say <b>20/20</b>, and then it shows our score and rank. The last submission before the deadline counts.</span><span class="tr">Ders sayfasındaki gönderim sistemine yalnızca <code>findfast.cpp</code>'yi yükle. Sistem, gizli testleri ve büyük iş yüklerini notlandırma bilgisayarında koşar. <b>20/20</b> yazmalı; ardından puanımız ve sıramız görünür. Son tarihten önceki son gönderim sayılır.</span></p>
+        <p><span class="en">Full guide with troubleshooting: <a href="https://github.com/TradersEntertainment/cmp2003project/blob/claude/funny-cori-gqz0ee/TESTING.md" target="_blank" rel="noopener">TESTING.md</a>.</span><span class="tr">Sorun giderme tablosuyla tam rehber: <a href="https://github.com/TradersEntertainment/cmp2003project/blob/claude/funny-cori-gqz0ee/TESTING_TR.md" target="_blank" rel="noopener">TESTING_TR.md</a>.</span></p>
+      </div></li>
+    </ol>
   </section>
 
   <footer class="repo-foot">
@@ -729,6 +810,57 @@ $("lang-tr").addEventListener("click", () => setLang("tr"));
 if (window.matchMedia && matchMedia("(prefers-reduced-motion: reduce)").matches) $("chk-auto").checked = false;
 seed(); setLang(lang);
 window.__ff = { hashOf, hex64 };
+})();
+</script>
+
+<script>
+(() => {
+/* Test-it-yourself section: commands per operating system, copy buttons. */
+const OS = {
+  win:   { install: ["Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser", "Invoke-RestMethod -Uri https://get.scoop.sh | Invoke-Expression", "scoop install gcc", "g++ --version"],
+           check: ["Get-ChildItem findfast.cpp"], all: [".\\run_tests.bat"], cxx: "g++", exe: ".\\findfast.exe", out: "findfast.exe", st: ".\\student_tests.exe", stOut: "student_tests.exe", data: "data\\small.csv" },
+  mac:   { install: ["xcode-select --install", "clang++ --version"],
+           check: ["ls findfast.cpp"], all: ["bash run_tests.sh"], cxx: "clang++", exe: "./findfast", out: "findfast", st: "./student_tests", stOut: "student_tests", data: "data/small.csv" },
+  linux: { install: ["sudo apt update", "sudo apt install g++", "g++ --version"],
+           check: ["ls findfast.cpp"], all: ["bash run_tests.sh"], cxx: "g++", exe: "./findfast", out: "findfast", st: "./student_tests", stOut: "student_tests", data: "data/small.csv" },
+};
+const esc = s => s.replace(/&/g, "&amp;").replace(/</g, "&lt;");
+const bi = (en, tr) => `<span class="en">${en}</span><span class="tr">${tr}</span>`;
+const line = c => `<div class="cmdline"><code>${esc(c)}</code><button type="button" class="copy" data-cmd="${esc(c).replace(/"/g, "&quot;")}">${bi("Copy", "Kopyala")}</button></div>`;
+function manualRows(o) {
+  const flags = "-std=c++17 -O2 -Wall -Wextra -pedantic";
+  const rows = [
+    [`${o.cxx} ${flags} findfast.cpp -o ${o.out}`, bi("No output means success" + (o.cxx === "clang++" ? " (plus 7 template warnings, see below)" : ""), "Çıktı yoksa başarılı" + (o.cxx === "clang++" ? " (artı aşağıdaki 7 şablon uyarısı)" : ""))],
+    [`${o.exe} --test all`, bi("20 PASS lines, then <code>SUMMARY 20/20</code>", "20 PASS satırı, sonra <code>SUMMARY 20/20</code>")],
+    [`${o.exe} --test all --scale 5000 --seed 7`, bi("<code>SUMMARY 20/20</code> (bigger inputs, like the hidden tests)", "<code>SUMMARY 20/20</code> (gizli testlere benzer büyük girdiler)")],
+    [`${o.exe} --demo`, bi("<code>results 2</code>, <code>results 1</code>, <code>results 3</code>, as in the brief", "Föydeki gibi <code>results 2</code>, <code>results 1</code>, <code>results 3</code>")],
+    [`${o.exe} --bench --n 5000 --queries 10000 --updates 5000`, bi("No error and <code>peak_bytes 149281</code>. Times depend on the computer.", "Hata yok ve <code>peak_bytes 149281</code>. Süreler bilgisayara göre değişir.")],
+    [`${o.exe} --bench --workload ${o.data}`, bi("No error and <code>peak_bytes 32540</code>", "Hata yok ve <code>peak_bytes 32540</code>")],
+    [`${o.cxx} ${flags} student_tests.cpp -o ${o.stOut}`, bi("Compiles our own tests", "Kendi testlerimizi derler")],
+    [o.st, bi("11 PASS lines, then <code>SUMMARY 11/11</code>", "11 PASS satırı, sonra <code>SUMMARY 11/11</code>")],
+    [`${o.exe} --app --data docs`, bi("Interactive search: type <code>search network</code> (<code>results 2</code>), then <code>quit</code>", "Etkileşimli arama: <code>search network</code> yaz (<code>results 2</code>), sonra <code>quit</code>")],
+  ];
+  return rows.map(([c, e]) => `<div class="mrow">${line(c)}<div class="exp">${e}</div></div>`).join("");
+}
+function setOS(k) {
+  const o = OS[k]; if (!o) return;
+  document.documentElement.setAttribute("data-os", k);
+  document.querySelectorAll(".os button").forEach(b => b.setAttribute("aria-pressed", b.dataset.os === k));
+  document.querySelectorAll("#test .cmds").forEach(el => { el.innerHTML = o[el.dataset.k].map(line).join(""); });
+  document.getElementById("manual").innerHTML = manualRows(o);
+}
+document.querySelectorAll(".os button").forEach(b => b.addEventListener("click", () => setOS(b.dataset.os)));
+document.getElementById("test").addEventListener("click", e => {
+  const btn = e.target.closest("button.copy"); if (!btn) return;
+  const code = btn.previousElementSibling, text = btn.dataset.cmd.replace(/&quot;/g, '"').replace(/&lt;/g, "<").replace(/&amp;/g, "&");
+  const tr = document.documentElement.getAttribute("data-lang") === "tr";
+  const ok = () => { btn.classList.add("done"); btn.innerHTML = bi("Copied", "Kopyalandı"); setTimeout(() => { btn.classList.remove("done"); btn.innerHTML = bi("Copy", "Kopyala"); }, 1600); };
+  const fallback = () => { try { const r = document.createRange(); r.selectNodeContents(code); const s = getSelection(); s.removeAllRanges(); s.addRange(r); } catch (err) {} btn.innerHTML = tr ? "Ctrl+C" : "Ctrl+C"; };
+  try { navigator.clipboard.writeText(text).then(ok, fallback); } catch (err) { fallback(); }
+});
+let guess = "win";
+try { const u = (navigator.userAgent || "") + " " + (navigator.platform || ""); if (/Mac/i.test(u) && !/iPhone|iPad/i.test(u)) guess = "mac"; else if (/Linux|X11/i.test(u) && !/Android/i.test(u)) guess = "linux"; } catch (err) {}
+setOS(guess);
 })();
 </script>
 
